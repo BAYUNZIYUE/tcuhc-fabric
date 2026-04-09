@@ -7,7 +7,8 @@
   "description": "TC UHC in fabric",
   "authors": [
     "Gamepiaynmo",
-    "Fallen_Breath"
+    "Fallen_Breath",
+    "kaniol-lck"
   ],
   "contact": {
     "homepage": "https://github.com/Fallen-Breath/tcuhc-fabric",
@@ -28,7 +29,7 @@
   "accessWidener": "tcuhc.accesswidener",
 
   "depends": {
-    "fabricloader": ">=0.7.1",
-    "minecraft": "1.18.x"
+    "fabricloader": ">=0.14.0",
+    "minecraft": "1.20.x"
   }
 }

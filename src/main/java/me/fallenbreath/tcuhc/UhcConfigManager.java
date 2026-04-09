@@ -6,7 +6,7 @@ package me.fallenbreath.tcuhc;
 
 import me.fallenbreath.tcuhc.options.Option;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.LiteralText;
+
 
 public class UhcConfigManager
 {
@@ -45,7 +45,7 @@ public class UhcConfigManager
 		if (isConfiguring && operator.isSamePlayer(player) && isInputting) {
 			curOption.setStringValue(msg);
 			UhcGameManager.instance.getUhcPlayerManager().refreshConfigBook();
-			player.sendMessage(new LiteralText("Set " + curOption.getName() + " to " + curOption.getStringValue()), false);
+			player.sendMessage(Text.literal("Set " + curOption.getName() + " to " + curOption.getStringValue()), false);
 			isInputting = false;
 			return false;
 		}

@@ -8,7 +8,7 @@ import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.block.entity.ChestBlockEntity;
 import net.minecraft.block.entity.LootableContainerBlockEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.text.LiteralText;
+
 import net.minecraft.util.math.BlockPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -52,7 +52,7 @@ public abstract class ChestBlockEntityMixin extends LootableContainerBlockEntity
 			String customName = this.getCustomName().getString();
 			if (customName.equals(BonusChestFeature.BONUS_CHEST_NAME) || customName.equals(BonusChestFeature.EMPTY_CHEST_NAME))
 			{
-				this.setCustomName(new LiteralText("Opened " + customName));
+				this.setCustomName(Text.literal("Opened " + customName));
 			}
 		}
 	}

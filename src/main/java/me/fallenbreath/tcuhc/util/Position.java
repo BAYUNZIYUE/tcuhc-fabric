@@ -1,7 +1,7 @@
 package me.fallenbreath.tcuhc.util;
 
 import net.minecraft.util.math.Vec3d;
-import net.minecraft.util.registry.RegistryKey;
+import net.minecraft.registry.RegistryKey;
 import net.minecraft.world.World;
 
 public class Position

@@ -1,7 +1,7 @@
 package me.fallenbreath.tcuhc.mixins.worldgen.feature;
 
 import me.fallenbreath.tcuhc.gen.structure.UhcStructures;
-import net.minecraft.util.registry.RegistryKey;
+import net.minecraft.registry.RegistryKey;
 import net.minecraft.world.biome.Biome;
 import net.minecraft.world.biome.BiomeKeys;
 import net.minecraft.world.gen.ProbabilityConfig;

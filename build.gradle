@@ -1,9 +1,6 @@
 plugins {
-	id 'fabric-loom' version '0.10-SNAPSHOT'
+	id 'fabric-loom' version '1.7-SNAPSHOT'
 	id 'maven-publish'
-
-	// https://github.com/Juuxel/LoomQuiltflower
-	id 'io.github.juuxel.loom-quiltflower-mini' version '1.1.0'
 }
 
 repositories {
@@ -36,8 +33,6 @@ dependencies {
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
 	modRuntimeOnly 'com.github.astei:lazydfu:0.1.2'
-	modRuntimeOnly "carpet:fabric-carpet:1.18-1.4.56+v211130"
-	modRuntimeOnly 'com.github.CaffeineMC.lithium-fabric:lithium:mc1.18.1-0.7.6'
 
 	fabricApiModules.each {
 		modImplementation fabricApi.module(it, project.fabric_api_version)
@@ -68,7 +63,7 @@ tasks.withType(JavaCompile) {
 // if it is present.
 // If you remove this task, sources will not be generated.
 task sourcesJar(type: Jar, dependsOn: classes) {
-	classifier = "sources"
+	archiveClassifier = "sources"
 	from sourceSets.main.allSource
 }
 

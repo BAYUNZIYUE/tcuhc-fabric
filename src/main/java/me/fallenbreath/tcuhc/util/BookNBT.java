@@ -15,35 +15,35 @@ import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtString;
-import net.minecraft.text.BaseText;
+
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.HoverEvent;
-import net.minecraft.text.LiteralText;
+
 import net.minecraft.util.Formatting;
 
 import java.util.Optional;
 
 public class BookNBT {
 	
-	public static NbtList appendPageText(NbtList nbt, BaseText text) {
-		nbt.add(NbtString.of(BaseText.Serializer.toJson(text)));
+	public static NbtList appendPageText(NbtList nbt, Text text) {
+		nbt.add(NbtString.of(Text.Serializer.toJson(text)));
 		return nbt;
 	}
 	
-	public static BaseText createTextEvent(String text, String cmd, String hover, Formatting color) {
-		BaseText res = new LiteralText(text);
+	public static Text createTextEvent(String text, String cmd, String hover, Formatting color) {
+		Text res = Text.literal(text);
 		if (color != null) res.setStyle(res.getStyle().withColor(color));
 		if (cmd != null) res.setStyle(res.getStyle().withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmd)));
-		if (hover != null) res.setStyle(res.getStyle().withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new LiteralText(hover))));
+		if (hover != null) res.setStyle(res.getStyle().withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hover))));
 		return res;
 	}
 	
-	public static BaseText createOptionText(Optional<Option> opt) {
-		return (BaseText)opt.map(option -> createTextEvent(option.getName(), null, option.getDescription(), Formatting.BLUE)
+	public static Text createOptionText(Optional<Option> opt) {
+		return (Text)opt.map(option -> createTextEvent(option.getName(), null, option.getDescription(), Formatting.BLUE)
 				.append(createTextEvent(" < ", "/uhc option " + option.getId() + " sub", option.getDecString(), Formatting.RED))
 				.append(createTextEvent(option.getStringValue(), "/uhc option " + option.getId() + " set", "Click to input value", Formatting.GOLD))
 				.append(createTextEvent(" >", "/uhc option " + option.getId() + " add", option.getIncString(), Formatting.GREEN))
-				.append("\n")).orElse(new LiteralText("Unknown Option"));
+				.append("\n")).orElse(Text.literal("Unknown Option"));
 	}
 	
 	public static ItemStack createWrittenBook(String author, String title, NbtElement pages) {
@@ -54,15 +54,15 @@ public class BookNBT {
 		return book;
 	}
 	
-	public static BaseText createReturn() {
-		return new LiteralText("\n");
+	public static Text createReturn() {
+		return Text.literal("\n");
 	}
 	
 	public static ItemStack getConfigBook(UhcGameManager gameManager) {
 		Options options = gameManager.getOptions();
 		NbtList pages = new NbtList();
 		
-		appendPageText(pages, (BaseText) new LiteralText("General Settings\n\n")
+		appendPageText(pages, (Text) Text.literal("General Settings\n\n")
 				.append(createOptionText(options.getOption("gameMode")))
 				.append(createOptionText(options.getOption("battleType")))
 				.append(createOptionText(options.getOption("levelType")))
@@ -70,7 +70,7 @@ public class BookNBT {
 				.append(createOptionText(options.getOption("teamCount")))
 		);
 
-		appendPageText(pages, (BaseText) new LiteralText("Game Settings\n\n")
+		appendPageText(pages, (Text) Text.literal("Game Settings\n\n")
 				.append(createOptionText(options.getOption("difficulty")))
 				.append(createOptionText(options.getOption("weather")))
 				.append(createOptionText(options.getOption("daylightCycle")))
@@ -82,7 +82,7 @@ public class BookNBT {
 				.append(createOptionText(options.getOption("TNTBomber")))
 		);
 		
-		appendPageText(pages, (BaseText) new LiteralText("Time Settings\n\n")
+		appendPageText(pages, (Text) Text.literal("Time Settings\n\n")
 				.append(createOptionText(options.getOption("borderStart")))
 				.append(createOptionText(options.getOption("borderEnd")))
 				.append(createOptionText(options.getOption("borderFinal")))
@@ -95,7 +95,7 @@ public class BookNBT {
 				.append(createOptionText(options.getOption("greenhandTime")))
 		);
 		
-		appendPageText(pages, (BaseText) new LiteralText("World Settings\n\n")
+		appendPageText(pages, (Text) Text.literal("World Settings\n\n")
 				.append(createOptionText(options.getOption("merchantFrequency")))
 				.append(createOptionText(options.getOption("oreFrequency")))
 				.append(createOptionText(options.getOption("chestFrequency")))
@@ -116,7 +116,7 @@ public class BookNBT {
 		Options options = gameManager.getOptions();
 		int teamCount = options.getIntegerOptionValue("teamCount");
 		boolean randomTeams = options.getBooleanOptionValue("randomTeams");
-		BaseText text = new LiteralText("Select Teams\n\n");
+		Text text = Text.literal("Select Teams\n\n");
 		String line = "***********************\n";
 		text.append(createTextEvent(line, "/uhc select 8", "Select to observe", Formatting.GRAY));
 		if (randomTeams)
@@ -157,8 +157,8 @@ public class BookNBT {
 		return createWrittenBook("sbGP", "UHC Team Selection", pages);
 	}
 	
-	public static BaseText createPlayerText(UhcGamePlayer player) {
-		BaseText text = createTextEvent(player.getName(), null, player.getName(), player.getTeam().getTeamColor().chatColor);
+	public static Text createPlayerText(UhcGamePlayer player) {
+		Text text = createTextEvent(player.getName(), null, player.getName(), player.getTeam().getTeamColor().chatColor);
 		if (player.isAlive())
 			text.append(createTextEvent(" alive\n", "/uhc adjust kill " + player.getName(), "Click to kill " + player.getName(), Formatting.DARK_GREEN));
 		else text.append(createTextEvent(" dead\n", "/uhc adjust resu " + player.getName(), "Click to resurrent " + player.getName(), Formatting.DARK_RED));
@@ -176,7 +176,7 @@ public class BookNBT {
 			case NORMAL:
 			case KING: {
 				for (UhcGameTeam team : gameManager.getUhcPlayerManager().getTeams()) {
-					BaseText text = new LiteralText(team.getColorfulTeamName() + "\n\n");
+					Text text = Text.literal(team.getColorfulTeamName() + "\n\n");
 					for (UhcGamePlayer player : team.getPlayers()) {
 						text.append(createPlayerText(player));
 					}
@@ -187,7 +187,7 @@ public class BookNBT {
 			case SOLO:
 			case GHOST:
 			case BOMBER: {
-				BaseText text = new LiteralText(Formatting.LIGHT_PURPLE + "All Players\n\n");
+				Text text = Text.literal(Formatting.LIGHT_PURPLE + "All Players\n\n");
 				for (UhcGamePlayer player : gameManager.getUhcPlayerManager().getCombatPlayers()) {
 					text.append(createPlayerText(player));
 				}
@@ -195,7 +195,7 @@ public class BookNBT {
 			}
 		}
 		
-		BaseText text = new LiteralText("End\n\n");
+		Text text = Text.literal("End\n\n");
 		text.append(createTextEvent("Stop Adjusting", "/uhc adjust end", "Click to remove this book", Formatting.LIGHT_PURPLE));
 		appendPageText(pages, text);
 		return createWrittenBook("sbGP", "UHC Game Adjustion", pages);

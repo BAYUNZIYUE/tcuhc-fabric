@@ -36,7 +36,7 @@ import net.minecraft.scoreboard.Team;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
-import net.minecraft.text.LiteralText;
+
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.BlockPos;
@@ -160,7 +160,7 @@ public class UhcPlayerManager
 		int g = (int) (rgb[1] * 255);
 		int b = (int) (rgb[2] * 255);
 		((DyeableItem)Items.LEATHER_CHESTPLATE).setColor(stack, (((r << 8) | g) << 8) | b);
-		stack.setCustomName(new LiteralText(color.dyeColor.toString()));
+		stack.setCustomName(Text.literal(color.dyeColor.toString()));
 		return stack;
 	}
 	
@@ -212,7 +212,7 @@ public class UhcPlayerManager
 			return;
 		}
 		String message = chatMessage(player, msg, true);
-		gamePlayer.getTeam().getPlayers().forEach(other -> other.getRealPlayer().ifPresent(playermp -> playermp.sendMessage(new LiteralText(message), false)));
+		gamePlayer.getTeam().getPlayers().forEach(other -> other.getRealPlayer().ifPresent(playermp -> playermp.sendMessage(Text.literal(message), false)));
 	}
 	
 	private String chatMessage(PlayerEntity player, String msg, boolean secret) {
@@ -323,9 +323,9 @@ public class UhcPlayerManager
 			else if (source instanceof ProjectileDamageSource) msg += source.getSource().getName().getString() + byEnding;
 			else if (source instanceof EntityDamageSource) msg += source.getAttacker().getName().getString();
 			else msg += source.getName() + byEnding;
-			player.sendMessage(new LiteralText(Formatting.RED + msg), false);
+			player.sendMessage(Text.literal(Formatting.RED + msg), false);
 			if (source.getAttacker() instanceof ServerPlayerEntity) {
-				((ServerPlayerEntity)source.getAttacker()).sendMessage(new LiteralText(String.format("%sYou dealt %.2f damage to %s", Formatting.BLUE, amount, player.getEntityName())), false);
+				((ServerPlayerEntity)source.getAttacker()).sendMessage(Text.literal(String.format("%sYou dealt %.2f damage to %s", Formatting.BLUE, amount, player.getEntityName())), false);
 			}
 		}
 	}
@@ -438,8 +438,8 @@ public class UhcPlayerManager
 		for (UhcGamePlayer gamePlayer : getAllPlayers()) {
 			UhcGameColor color = gamePlayer.getColorSelected().orElse(null);
 			if (color == null) {
-				gamePlayer.getRealPlayer().ifPresent(player -> player.sendMessage(new LiteralText(Formatting.DARK_RED + "Please select a team to join, others are waiting for you !"), false));
-				operator.ifPresent(player -> player.sendMessage(new LiteralText(Formatting.DARK_RED + gamePlayer.getName()), false));
+				gamePlayer.getRealPlayer().ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "Please select a team to join, others are waiting for you !"), false));
+				operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + gamePlayer.getName()), false));
 				alright = false;
 			} else {
 				if (color == UhcGameColor.WHITE) observePlayerList.add(gamePlayer);
@@ -448,7 +448,7 @@ public class UhcPlayerManager
 		}
 		
 		if (!alright) {
-			operator.ifPresent(player -> player.sendMessage(new LiteralText(Formatting.DARK_RED + "Some players has not made a choice."), false));
+			operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "Some players has not made a choice."), false));
 			return false;
 		}
 		
@@ -504,8 +504,8 @@ public class UhcPlayerManager
 		for (UhcGamePlayer gamePlayer : getAllPlayers()) {
 			UhcGameColor color = gamePlayer.getColorSelected().orElse(null);
 			if (color == null) {
-				gamePlayer.getRealPlayer().ifPresent(player -> player.sendMessage(new LiteralText(Formatting.DARK_RED + "Please select a team to join, others are waiting for you !"), false));
-				operator.ifPresent(player -> player.sendMessage(new LiteralText(Formatting.DARK_RED + gamePlayer.getName()), false));
+				gamePlayer.getRealPlayer().ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "Please select a team to join, others are waiting for you !"), false));
+				operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + gamePlayer.getName()), false));
 				alright = false;
 			} else {
 				if (color == UhcGameColor.WHITE) observePlayerList.add(gamePlayer);
@@ -514,7 +514,7 @@ public class UhcPlayerManager
 		}
 		
 		if (!alright) {
-			operator.ifPresent(player -> player.sendMessage(new LiteralText(Formatting.DARK_RED + "Some players has not made a choice."), false));
+			operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "Some players has not made a choice."), false));
 			return false;
 		}
 		
@@ -578,13 +578,13 @@ public class UhcPlayerManager
 					if (player.getColorSelected().orElse(UhcGameColor.BLUE) == UhcGameColor.RED) {
 						if (boss == null) boss = player;
 						else if(UhcGameManager.getGameMode() == EnumMode.BOSS) {
-							player.getRealPlayer().ifPresent(playermp -> playermp.sendMessage(new LiteralText(Formatting.DARK_RED + "There cannot be more than one boss."), false));
+							player.getRealPlayer().ifPresent(playermp -> playermp.sendMessage(Text.literal(Formatting.DARK_RED + "There cannot be more than one boss."), false));
 							alright = false;
 						}
 					}
 				}
 				if (!alright) {
-					operator.ifPresent(player -> player.sendMessage(new LiteralText(Formatting.DARK_RED + "There are more than one boss."), false));
+					operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "There are more than one boss."), false));
 					return false;
 				}
 				teams.add(new UhcGameTeam().setColorTeam(UhcGameColor.RED).addPlayer(boss));
@@ -608,7 +608,7 @@ public class UhcPlayerManager
 						hunterTeam.addPlayer(player);
 				}
 				if (preyTeam.getPlayerCount() == 0 || hunterTeam.getPlayerCount() == 0 ) {
-					operator.ifPresent(player -> player.sendMessage(new LiteralText(Formatting.DARK_RED + "There is no prey or hunter in hunter game."), false));
+					operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "There is no prey or hunter in hunter game."), false));
 					return false;
 				}
 				playersPerTeam = 1;

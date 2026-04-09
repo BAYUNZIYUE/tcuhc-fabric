@@ -22,7 +22,7 @@ import net.minecraft.potion.PotionUtil;
 import net.minecraft.potion.Potions;
 import net.minecraft.recipe.BrewingRecipeRegistry;
 import net.minecraft.tag.FluidTags;
-import net.minecraft.text.LiteralText;
+
 import net.minecraft.util.BlockRotation;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.Heightmap;
@@ -31,7 +31,7 @@ import net.minecraft.world.biome.Biome;
 import net.minecraft.world.gen.feature.DefaultFeatureConfig;
 import net.minecraft.world.gen.feature.Feature;
 import net.minecraft.world.gen.feature.util.FeatureContext;
-import net.minecraft.util.registry.Registry;
+import net.minecraft.registry.Registry;
 
 
 import java.util.List;
@@ -134,7 +134,7 @@ public class BonusChestFeature extends Feature<DefaultFeatureConfig>
 				return false;
 			}
 			ChestBlockEntity chest = (ChestBlockEntity) tileentity;
-			chest.setCustomName(new LiteralText(isEmptyChest ? EMPTY_CHEST_NAME : BONUS_CHEST_NAME));
+			chest.setCustomName(Text.literal(isEmptyChest ? EMPTY_CHEST_NAME : BONUS_CHEST_NAME));
 			if (isEmptyChest)
 			{
 				this.genChestItem(chest, emptyItemList, false);
@@ -281,7 +281,7 @@ public class BonusChestFeature extends Feature<DefaultFeatureConfig>
 		chestItemList.add(new RandomItem(5, new ItemSupplier(Items.LEATHER)));
 		chestItemList.add(new RandomItem(5, new MinMaxSupplier(Items.EXPERIENCE_BOTTLE, 2, 4)));
 
-		emptyItemList.add(new RandomItem(1, () -> new ItemStack(Blocks.DEAD_BUSH).setCustomName(new LiteralText("There should be something here, but ..."))));
+		emptyItemList.add(new RandomItem(1, () -> new ItemStack(Blocks.DEAD_BUSH).setCustomName(Text.literal("There should be something here, but ..."))));
 
 		if (UhcGameManager.getBattleType() == UhcGameManager.EnumBattleType.MARINE) {
 			valuableItemList.add(new RandomItem(8, () -> {

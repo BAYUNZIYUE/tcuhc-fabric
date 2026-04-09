@@ -9,8 +9,8 @@ import net.minecraft.recipe.RecipeSerializer;
 import net.minecraft.structure.StructurePieceType;
 import net.minecraft.util.math.intprovider.IntProvider;
 import net.minecraft.util.math.intprovider.IntProviderType;
-import net.minecraft.util.registry.BuiltinRegistries;
-import net.minecraft.util.registry.Registry;
+import net.minecraft.registry.MutableRegistry;
+import net.minecraft.registry.Registry;
 import net.minecraft.world.gen.GenerationStep;
 import net.minecraft.world.gen.feature.*;
 

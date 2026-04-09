@@ -23,7 +23,7 @@ import net.minecraft.nbt.NbtByte;
 import net.minecraft.potion.PotionUtil;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.stat.Stats;
-import net.minecraft.text.LiteralText;
+
 import net.minecraft.text.Text;
 import net.minecraft.util.DyeColor;
 import net.minecraft.util.Formatting;
@@ -84,13 +84,13 @@ public class TaskTitleCountDown extends TaskTimer {
 						this.getGamePlayer().addBomberModeEffect();
 					case GHOST:
 						this.getGamePlayer().addGhostModeEffect();
-						ItemStack shinyPotion = new ItemStack(Items.SPLASH_POTION).setCustomName(new LiteralText("Splash Shiny Potion"));
+						ItemStack shinyPotion = new ItemStack(Items.SPLASH_POTION).setCustomName(Text.literal("Splash Shiny Potion"));
 						PotionUtil.setCustomPotionEffects(shinyPotion, Collections.singleton(new StatusEffectInstance(StatusEffects.GLOWING, 200, 0)));
 						player.getInventory().insertStack(shinyPotion);
 						break;
 					case HUNTER:
 						if(this.getGamePlayer().getTeam().getTeamColor() == UhcGameColor.RED) {
-							ItemStack speedPotion = new ItemStack(Items.SPLASH_POTION).setCustomName(new LiteralText("Splash Speedy Potion"));
+							ItemStack speedPotion = new ItemStack(Items.SPLASH_POTION).setCustomName(Text.literal("Splash Speedy Potion"));
 							PotionUtil.setCustomPotionEffects(speedPotion, Collections.singleton(new StatusEffectInstance(StatusEffects.SPEED, 200, 0)));
 							player.getInventory().insertStack(speedPotion);
 						} else {
@@ -104,7 +104,7 @@ public class TaskTitleCountDown extends TaskTimer {
 						if(this.getGamePlayer().getTeam().getTeamColor() == UhcGameColor.RED) {
 							this.getGamePlayer().addGhostModeEffect();
 						} else {
-							ItemStack shinyPotion2 = new ItemStack(Items.SPLASH_POTION).setCustomName(new LiteralText("Splash Shiny Potion"));
+							ItemStack shinyPotion2 = new ItemStack(Items.SPLASH_POTION).setCustomName(Text.literal("Splash Shiny Potion"));
 							PotionUtil.setCustomPotionEffects(shinyPotion2, Collections.singleton(new StatusEffectInstance(StatusEffects.GLOWING, 200, 0)));
 							player.getInventory().insertStack(shinyPotion2);
 							ItemStack compass = new ItemStack((Items.COMPASS));
@@ -115,7 +115,7 @@ public class TaskTitleCountDown extends TaskTimer {
 					case KING:
 						if (this.getGamePlayer().isKing()) {
 							DyeColor dyeColor = this.getGamePlayer().getTeam().getTeamColor().dyeColor;
-							ItemStack kingsHelmet = new ItemStack(Items.LEATHER_HELMET).setCustomName(new LiteralText(String.format("%s crown", dyeColor.getName())));
+							ItemStack kingsHelmet = new ItemStack(Items.LEATHER_HELMET).setCustomName(Text.literal(String.format("%s crown", dyeColor.getName())));
 							kingsHelmet.getOrCreateNbt().put("KingsCrown", NbtByte.of((byte)1));
 							kingsHelmet.getOrCreateNbt().put("Unbreakable", NbtByte.of((byte)1));
 							((DyeableItem)Items.LEATHER_HELMET).setColor(kingsHelmet, dyeColor.getMapColor().color);

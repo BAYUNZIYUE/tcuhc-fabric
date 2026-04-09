@@ -24,8 +24,8 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.PlayerManager;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
-import net.minecraft.text.BaseText;
-import net.minecraft.text.LiteralText;
+
+
 import net.minecraft.util.DyeColor;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.Difficulty;
@@ -217,14 +217,14 @@ public class UhcGameManager extends Taskable {
 	
 	public void startGame(ServerPlayerEntity operator) {
 		if (isGamePlaying || !configManager.isConfiguring()) {
-			operator.sendMessage(new LiteralText("It's not time to start."), false);
+			operator.sendMessage(Text.literal("It's not time to start."), false);
 			return;
 		}
 		boolean autoTeams = uhcOptions.getBooleanOptionValue("randomTeams");
 		if (!playerManager.formTeams(autoTeams)) return;
 		switch (getGameMode()) {
 			case BOSS:
-				bossInfo = Optional.of(new ServerBossBar(new LiteralText(playerManager.getBossPlayer().getName()), BossBar.Color.PURPLE, BossBar.Style.PROGRESS));
+				bossInfo = Optional.of(new ServerBossBar(Text.literal(playerManager.getBossPlayer().getName()), BossBar.Color.PURPLE, BossBar.Style.PROGRESS));
 				getServerPlayerManager().getPlayerList().forEach(player -> bossInfo.ifPresent(info -> info.addPlayer(player)));
 				bossInfo.ifPresent(info -> info.setVisible(true));
 				break;
@@ -310,7 +310,7 @@ public class UhcGameManager extends Taskable {
 		String name = "Health";
 		ScoreboardObjective objective;
 		if ((objective = scoreboard.getObjective(name)) == null) {
-			objective = scoreboard.addObjective(name, ScoreboardCriterion.HEALTH, new LiteralText(name), ScoreboardCriterion.RenderType.HEARTS);
+			objective = scoreboard.addObjective(name, ScoreboardCriterion.HEALTH, Text.literal(name), ScoreboardCriterion.RenderType.HEARTS);
 		}
 		scoreboard.setObjectiveSlot(0, objective);
 		scoreboard.setObjectiveSlot(2, objective);
@@ -357,7 +357,7 @@ public class UhcGameManager extends Taskable {
 	}
 	
 	public void broadcastMessage(String msg) {
-		BaseText text = new LiteralText(msg);
+		Text text = Text.literal(msg);
 		getServerPlayerManager().getPlayerList().forEach(player -> player.sendMessage(text, false));
 		LOG.info(msg);
 	}

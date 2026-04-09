@@ -8,7 +8,7 @@ import me.fallenbreath.tcuhc.UhcGameManager;
 import me.fallenbreath.tcuhc.options.Options;
 import me.fallenbreath.tcuhc.task.Task.TaskTimer;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.LiteralText;
+
 import net.minecraft.util.Formatting;
 import net.minecraft.world.border.WorldBorder;
 
@@ -41,7 +41,7 @@ public class TaskBorderReminder extends TaskTimer {
 		for (ServerPlayerEntity player : UhcGameManager.instance.getServerPlayerManager().getPlayerList()) {
 			if (border.getDistanceInsideBorder(player) < 5 && !(Math.abs(player.getX()) < borderEnd / 2.0 && Math.abs(player.getZ()) < borderEnd / 2.0)
 					&& !player.isCreative() && !player.isSpectator() && UhcGameManager.instance.getUhcPlayerManager().getGamePlayer(player).borderRemindCooldown()) {
-				player.sendMessage(new LiteralText(Formatting.DARK_RED + "You will fall behind the world border!"), false);
+				player.sendMessage(Text.literal(Formatting.DARK_RED + "You will fall behind the world border!"), false);
 			}
 		}
 	}

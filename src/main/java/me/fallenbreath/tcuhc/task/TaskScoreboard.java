@@ -16,7 +16,7 @@ import net.minecraft.scoreboard.ScoreboardCriterion;
 import net.minecraft.scoreboard.ScoreboardObjective;
 import net.minecraft.scoreboard.ScoreboardPlayerScore;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.text.LiteralText;
+
 
 public class TaskScoreboard extends TaskTimer {
 	
@@ -44,7 +44,7 @@ public class TaskScoreboard extends TaskTimer {
 		
 		scoreboard = UhcGameManager.instance.getMainScoreboard();
 		if ((objective = scoreboard.getObjective(scoreName)) == null) {
-			objective = scoreboard.addObjective(scoreName, ScoreboardCriterion.DUMMY, new LiteralText(displayName), ScoreboardCriterion.RenderType.INTEGER);
+			objective = scoreboard.addObjective(scoreName, ScoreboardCriterion.DUMMY, Text.literal(displayName), ScoreboardCriterion.RenderType.INTEGER);
 		}
 		scoreboard.setObjectiveSlot(1, objective);
 		scoreboard.getPlayerScore(lines[0], objective).setScore(gameTime);

@@ -21,7 +21,7 @@ import net.minecraft.potion.PotionUtil;
 import net.minecraft.potion.Potions;
 import net.minecraft.recipe.Recipe;
 import net.minecraft.recipe.RecipeType;
-import net.minecraft.text.LiteralText;
+
 import net.minecraft.text.Text;
 import net.minecraft.world.World;
 import org.jetbrains.annotations.Nullable;
@@ -42,7 +42,7 @@ public class PlayerItems
 
 	private static void setSingleLore(ItemStack itemStack, String lore)
 	{
-		String jsonText = Text.Serializer.toJson(new LiteralText(lore));
+		String jsonText = Text.Serializer.toJson(Text.literal(lore));
 		NbtList loreList = new NbtList();
 		loreList.add(NbtString.of(jsonText));
 		itemStack.getOrCreateSubNbt("display").put("Lore", loreList);
@@ -72,7 +72,7 @@ public class PlayerItems
 		String moralDescription = playerName + "'s moral(jie) integrity(cao)";
 		if (!stack.hasCustomName())
 		{
-			stack.setCustomName(new LiteralText(moralDescription));
+			stack.setCustomName(Text.literal(moralDescription));
 		}
 		else
 		{
@@ -203,7 +203,7 @@ public class PlayerItems
 
 		private Builder named(String name)
 		{
-			return this.mani(s -> s.setCustomName(new LiteralText(name)));
+			return this.mani(s -> s.setCustomName(Text.literal(name)));
 		}
 
 		private Builder potion(Potion potionType)

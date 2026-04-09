@@ -12,7 +12,7 @@ import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.HoverEvent;
-import net.minecraft.text.LiteralText;
+
 import net.minecraft.util.Formatting;
 import net.minecraft.util.math.Vec3d;
 
@@ -110,9 +110,9 @@ public class UhcGameCommand
 	}
 
 	private static int sendVersionInfo(ServerCommandSource sender) {
-		sender.sendFeedback(new LiteralText(Formatting.GOLD + "== UHC Mod for " + Formatting.RED + "T" + Formatting.BLUE + "opology" + Formatting.RED + "C" + Formatting.BLUE + "raft" + Formatting.GOLD + " =="), false);
-		sender.sendFeedback(new LiteralText("          " + Formatting.GREEN + "Mod Version " + Formatting.GOLD + TcUhcMod.getModVersion()), false);
-		sender.sendFeedback(new LiteralText("     " + Formatting.GREEN + "Minecraft Version " + Formatting.GOLD + TcUhcMod.getMinecraftVersion()), false);
+		sender.sendFeedback(Text.literal(Formatting.GOLD + "== UHC Mod for " + Formatting.RED + "T" + Formatting.BLUE + "opology" + Formatting.RED + "C" + Formatting.BLUE + "raft" + Formatting.GOLD + " =="), false);
+		sender.sendFeedback(Text.literal("          " + Formatting.GREEN + "Mod Version " + Formatting.GOLD + TcUhcMod.getModVersion()), false);
+		sender.sendFeedback(Text.literal("     " + Formatting.GREEN + "Minecraft Version " + Formatting.GOLD + TcUhcMod.getMinecraftVersion()), false);
 		return 1;
 	}
 
@@ -131,16 +131,16 @@ public class UhcGameCommand
 		Position deathPos = gamePlayer.getDeathPos();
 		if (deathPos == null)
 		{
-			sender.sendFeedback(new LiteralText("You are still alive."), false);
+			sender.sendFeedback(Text.literal("You are still alive."), false);
 		}
 		else
 		{
 			Vec3d pos = deathPos.pos;
 			String dimId = deathPos.dimension.getValue().toString();
-			LiteralText text = new LiteralText(String.format("[%.1f, %.1f, %.1f] @ %s", pos.getX(), pos.getY(), pos.getZ(), dimId));
+			LiteralText text = Text.literal(String.format("[%.1f, %.1f, %.1f] @ %s", pos.getX(), pos.getY(), pos.getZ(), dimId));
 			text.setStyle(
 					text.getStyle().
-					withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, new LiteralText("Click to teleport back to your death position"))).
+					withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("Click to teleport back to your death position"))).
 					withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, String.format("/execute in %s run tp %s %s %s", dimId, pos.getX(), pos.getY(), pos.getZ())))
 			);
 			sender.sendFeedback(text, false);
@@ -238,15 +238,15 @@ public class UhcGameCommand
 					break;
 				case "set":
 					UhcGameManager.instance.getConfigManager().inputOptionValue(option);
-					sender.sendFeedback(new LiteralText(String.format("Input the value for %s:", option.getName())), false);
+					sender.sendFeedback(Text.literal(String.format("Input the value for %s:", option.getName())), false);
 					break;
 				default:
-					sender.sendFeedback(new LiteralText(String.format("Unknown operation %s", operation)), false);
+					sender.sendFeedback(Text.literal(String.format("Unknown operation %s", operation)), false);
 			}
 		}
 		else
 		{
-			sender.sendFeedback(new LiteralText(String.format("Unknown option %s", optionName)), false);
+			sender.sendFeedback(Text.literal(String.format("Unknown option %s", optionName)), false);
 		}
 		return 1;
 	}
@@ -271,7 +271,7 @@ public class UhcGameCommand
 		}
 		else
 		{
-			source.sendFeedback(new LiteralText(Formatting.RED + "Game has not started yet"), false);
+			source.sendFeedback(Text.literal(Formatting.RED + "Game has not started yet"), false);
 			return false;
 		}
 	}
@@ -284,7 +284,7 @@ public class UhcGameCommand
 			boolean ret = UhcGameManager.instance.getUhcPlayerManager().resurrectPlayerUsingCommand(player, cleanInventory, teleportBack);
 			if (!ret)
 			{
-				source.sendFeedback(new LiteralText(Formatting.RED + "Player " + player + " is still alive"), false);
+				source.sendFeedback(Text.literal(Formatting.RED + "Player " + player + " is still alive"), false);
 			}
 			regiveAdjustBook(source, false);
 		}
