@@ -4,7 +4,7 @@ import com.google.common.collect.ImmutableSet;
 import me.fallenbreath.tcuhc.util.UhcRegistry;
 import net.minecraft.block.Block;
 import net.minecraft.block.Blocks;
-import net.minecraft.world.gen.decorator.SquarePlacementModifier;
+import net.minecraft.world.gen.placement.SquarePlacementModifier;
 import net.minecraft.world.gen.feature.*;
 
 import java.util.Set;

@@ -1,6 +1,6 @@
 package me.fallenbreath.tcuhc.mixins.worldgen.ore;
 
-import net.minecraft.world.gen.decorator.PlacementModifier;
+import net.minecraft.world.gen.placement.PlacementModifier;
 import net.minecraft.world.gen.feature.ConfiguredFeature;
 import net.minecraft.world.gen.feature.PlacedFeature;
 import org.spongepowered.asm.mixin.Mixin;
