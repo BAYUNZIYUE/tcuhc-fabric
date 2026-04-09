@@ -6,6 +6,7 @@ package me.fallenbreath.tcuhc;
 
 import me.fallenbreath.tcuhc.options.Option;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.Text;
 
 
 public class UhcConfigManager

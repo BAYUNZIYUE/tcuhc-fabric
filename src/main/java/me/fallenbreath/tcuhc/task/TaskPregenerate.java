@@ -141,7 +141,6 @@ public class TaskPregenerate extends Task
 	@Override
 	public void onAdd()
 	{
-		this.world.getChunkManager().getLightingProvider().setTaskBatchSize(500);
 		this.startTimeMili = Util.getMeasuringTimeMs();
 		this.tryGenerateChunks();
 	}
@@ -151,7 +150,6 @@ public class TaskPregenerate extends Task
 	{
 		long miliPassed = Util.getMeasuringTimeMs() - this.startTimeMili;
 		UhcGameManager.instance.broadcastMessage(String.format("Pre-generating of %s finished, took %s", getWorldName(), makeTime(miliPassed)));
-		this.world.getChunkManager().getLightingProvider().setTaskBatchSize(5);
 		if (this.world == UhcGameManager.instance.getOverWorld())
 		{
 			try

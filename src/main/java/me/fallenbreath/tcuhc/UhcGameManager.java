@@ -6,7 +6,6 @@ package me.fallenbreath.tcuhc;
 
 import me.fallenbreath.tcuhc.UhcGamePlayer.EnumStat;
 import me.fallenbreath.tcuhc.mixins.core.MinecraftServerAccessor;
-import me.fallenbreath.tcuhc.mixins.core.SessionAccessor;
 import me.fallenbreath.tcuhc.options.Options;
 import me.fallenbreath.tcuhc.task.*;
 import me.fallenbreath.tcuhc.util.*;
@@ -26,7 +25,9 @@ import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 
 
+import net.minecraft.text.Text;
 import net.minecraft.util.DyeColor;
+import net.minecraft.util.WorldSavePath;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.Difficulty;
 import net.minecraft.world.GameRules;
@@ -202,11 +203,11 @@ public class UhcGameManager extends Taskable {
 	}
 
 	public static File getPreloadFile() {
-		return ((SessionAccessor)((MinecraftServerAccessor)instance.mcServer).getSession()).getDirectory().resolve("preload").toFile();
+		return ((MinecraftServerAccessor)instance.mcServer).getSession().getDirectory(WorldSavePath.ROOT).resolve("preload").toFile();
 	}
 
 	public static File getDataFile() {
-		return ((SessionAccessor)((MinecraftServerAccessor)instance.mcServer).getSession()).getDirectory().resolve("uhc.json").toFile();
+		return ((MinecraftServerAccessor)instance.mcServer).getSession().getDirectory(WorldSavePath.ROOT).resolve("uhc.json").toFile();
 	}
 	
 	public static void regenerateTerrain() {
@@ -341,8 +342,8 @@ public class UhcGameManager extends Taskable {
 				double dx = Math.cos(angle) * 0.6;
 				double dz = Math.sin(angle) * 0.6;
 				double dy = Math.cos(angle) * 0.4;
-				((ServerWorld) player.world).spawnParticles(ParticleTypes.FLAME, player.getPos().getX() + dx, player.getPos().getY() + dy + player.getStandingEyeHeight() / 2, player.getPos().getZ() + dz, 1, 0, 0, 0, 0);
-				((ServerWorld) player.world).spawnParticles(ParticleTypes.FLAME, player.getPos().getX() - dx, player.getPos().getY() + dy + player.getStandingEyeHeight() / 2, player.getPos().getZ() - dz, 1, 0, 0, 0, 0);
+				((ServerWorld) player.getWorld()).spawnParticles(ParticleTypes.FLAME, player.getPos().getX() + dx, player.getPos().getY() + dy + player.getStandingEyeHeight() / 2, player.getPos().getZ() + dz, 1, 0, 0, 0, 0);
+				((ServerWorld) player.getWorld()).spawnParticles(ParticleTypes.FLAME, player.getPos().getX() - dx, player.getPos().getY() + dy + player.getStandingEyeHeight() / 2, player.getPos().getZ() - dz, 1, 0, 0, 0, 0);
 			}
 		}
 	}

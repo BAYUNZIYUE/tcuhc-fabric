@@ -18,6 +18,8 @@ import net.minecraft.nbt.NbtString;
 
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.HoverEvent;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.Text;
 
 import net.minecraft.util.Formatting;
 
@@ -30,8 +32,8 @@ public class BookNBT {
 		return nbt;
 	}
 	
-	public static Text createTextEvent(String text, String cmd, String hover, Formatting color) {
-		Text res = Text.literal(text);
+	public static MutableText createTextEvent(String text, String cmd, String hover, Formatting color) {
+		MutableText res = Text.literal(text);
 		if (color != null) res.setStyle(res.getStyle().withColor(color));
 		if (cmd != null) res.setStyle(res.getStyle().withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmd)));
 		if (hover != null) res.setStyle(res.getStyle().withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hover))));
@@ -39,7 +41,7 @@ public class BookNBT {
 	}
 	
 	public static Text createOptionText(Optional<Option> opt) {
-		return (Text)opt.map(option -> createTextEvent(option.getName(), null, option.getDescription(), Formatting.BLUE)
+		return opt.map(option -> createTextEvent(option.getName(), null, option.getDescription(), Formatting.BLUE)
 				.append(createTextEvent(" < ", "/uhc option " + option.getId() + " sub", option.getDecString(), Formatting.RED))
 				.append(createTextEvent(option.getStringValue(), "/uhc option " + option.getId() + " set", "Click to input value", Formatting.GOLD))
 				.append(createTextEvent(" >", "/uhc option " + option.getId() + " add", option.getIncString(), Formatting.GREEN))
@@ -62,7 +64,7 @@ public class BookNBT {
 		Options options = gameManager.getOptions();
 		NbtList pages = new NbtList();
 		
-		appendPageText(pages, (Text) Text.literal("General Settings\n\n")
+		appendPageText(pages, Text.literal("General Settings\n\n")
 				.append(createOptionText(options.getOption("gameMode")))
 				.append(createOptionText(options.getOption("battleType")))
 				.append(createOptionText(options.getOption("levelType")))
@@ -70,7 +72,7 @@ public class BookNBT {
 				.append(createOptionText(options.getOption("teamCount")))
 		);
 
-		appendPageText(pages, (Text) Text.literal("Game Settings\n\n")
+		appendPageText(pages, Text.literal("Game Settings\n\n")
 				.append(createOptionText(options.getOption("difficulty")))
 				.append(createOptionText(options.getOption("weather")))
 				.append(createOptionText(options.getOption("daylightCycle")))
@@ -82,7 +84,7 @@ public class BookNBT {
 				.append(createOptionText(options.getOption("TNTBomber")))
 		);
 		
-		appendPageText(pages, (Text) Text.literal("Time Settings\n\n")
+		appendPageText(pages, Text.literal("Time Settings\n\n")
 				.append(createOptionText(options.getOption("borderStart")))
 				.append(createOptionText(options.getOption("borderEnd")))
 				.append(createOptionText(options.getOption("borderFinal")))
@@ -95,7 +97,7 @@ public class BookNBT {
 				.append(createOptionText(options.getOption("greenhandTime")))
 		);
 		
-		appendPageText(pages, (Text) Text.literal("World Settings\n\n")
+		appendPageText(pages, Text.literal("World Settings\n\n")
 				.append(createOptionText(options.getOption("merchantFrequency")))
 				.append(createOptionText(options.getOption("oreFrequency")))
 				.append(createOptionText(options.getOption("chestFrequency")))
@@ -116,7 +118,7 @@ public class BookNBT {
 		Options options = gameManager.getOptions();
 		int teamCount = options.getIntegerOptionValue("teamCount");
 		boolean randomTeams = options.getBooleanOptionValue("randomTeams");
-		Text text = Text.literal("Select Teams\n\n");
+		MutableText text = Text.literal("Select Teams\n\n");
 		String line = "***********************\n";
 		text.append(createTextEvent(line, "/uhc select 8", "Select to observe", Formatting.GRAY));
 		if (randomTeams)
@@ -158,7 +160,7 @@ public class BookNBT {
 	}
 	
 	public static Text createPlayerText(UhcGamePlayer player) {
-		Text text = createTextEvent(player.getName(), null, player.getName(), player.getTeam().getTeamColor().chatColor);
+		MutableText text = createTextEvent(player.getName(), null, player.getName(), player.getTeam().getTeamColor().chatColor);
 		if (player.isAlive())
 			text.append(createTextEvent(" alive\n", "/uhc adjust kill " + player.getName(), "Click to kill " + player.getName(), Formatting.DARK_GREEN));
 		else text.append(createTextEvent(" dead\n", "/uhc adjust resu " + player.getName(), "Click to resurrent " + player.getName(), Formatting.DARK_RED));
@@ -176,7 +178,7 @@ public class BookNBT {
 			case NORMAL:
 			case KING: {
 				for (UhcGameTeam team : gameManager.getUhcPlayerManager().getTeams()) {
-					Text text = Text.literal(team.getColorfulTeamName() + "\n\n");
+					MutableText text = Text.literal(team.getColorfulTeamName() + "\n\n");
 					for (UhcGamePlayer player : team.getPlayers()) {
 						text.append(createPlayerText(player));
 					}
@@ -187,7 +189,7 @@ public class BookNBT {
 			case SOLO:
 			case GHOST:
 			case BOMBER: {
-				Text text = Text.literal(Formatting.LIGHT_PURPLE + "All Players\n\n");
+				MutableText text = Text.literal(Formatting.LIGHT_PURPLE + "All Players\n\n");
 				for (UhcGamePlayer player : gameManager.getUhcPlayerManager().getCombatPlayers()) {
 					text.append(createPlayerText(player));
 				}
@@ -195,7 +197,7 @@ public class BookNBT {
 			}
 		}
 		
-		Text text = Text.literal("End\n\n");
+		MutableText text = Text.literal("End\n\n");
 		text.append(createTextEvent("Stop Adjusting", "/uhc adjust end", "Click to remove this book", Formatting.LIGHT_PURPLE));
 		appendPageText(pages, text);
 		return createWrittenBook("sbGP", "UHC Game Adjustion", pages);

@@ -60,7 +60,7 @@ public class PlayerItems
 			Recipe<?> recipe = world.getRecipeManager().getFirstMatch(RecipeType.SMELTING, inventory, world).orElse(null);
 			if (recipe != null)
 			{
-				ItemStack smeltResult = recipe.getOutput().copy();
+				ItemStack smeltResult = recipe.getOutput(world.getRegistryManager()).copy();
 				if (stack.hasCustomName())
 				{
 					smeltResult.setCustomName(stack.getName());

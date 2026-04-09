@@ -16,7 +16,7 @@ import net.minecraft.loot.LootTable;
 import net.minecraft.loot.entry.ItemEntry;
 import net.minecraft.loot.entry.LootPoolEntry;
 import net.minecraft.util.Identifier;
-import net.minecraft.registry.Registry;
+import net.minecraft.registry.Registries;
 import org.apache.logging.log4j.Logger;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -41,7 +41,7 @@ public abstract class LootManagerMixin
 		LootPoolEntry uhcLapisOreDrop = LootTableUtil.getUhcLootEntry("lapis_ore");
 
 		this.tables.forEach((id, table) -> {
-			Block block = Registry.BLOCK.get(new Identifier(id.getNamespace(), id.getPath().replace("blocks/", "")));
+			Block block = Registries.BLOCK.get(new Identifier(id.getNamespace(), id.getPath().replace("blocks/", "")));
 			LootTableAccessor tableAccessor = (LootTableAccessor)table;
 			if (block instanceof LeavesBlock)
 			{

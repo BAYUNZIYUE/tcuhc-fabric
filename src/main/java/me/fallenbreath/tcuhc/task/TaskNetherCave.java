@@ -11,8 +11,6 @@ import me.fallenbreath.tcuhc.options.Options;
 import me.fallenbreath.tcuhc.task.Task.TaskTimer;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
-import net.minecraft.block.Material;
-import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.particle.ParticleTypes;
@@ -66,7 +64,7 @@ public class TaskNetherCave extends TaskTimer {
 			for (UhcGamePlayer player : combatPlayers) {
 				player.getRealPlayer().ifPresent(playermp -> {
 					if (playermp.getWorld().getRegistryKey() != World.OVERWORLD)
-						playermp.damage(DamageSource.IN_WALL, 1.0f);
+						playermp.damage(playermp.getDamageSources().inWall(), 1.0f);
 				});
 			}
 		}
@@ -95,7 +93,7 @@ public class TaskNetherCave extends TaskTimer {
 				for (int z = finalZ - sampleSize; z <= finalZ + sampleSize; z += step) {
 					for (int y = world.getTopY(); y > world.getBottomY(); y--) {
 						BlockState state = world.getBlockState(new BlockPos(x, y, z));
-						if (state.getBlock() == Blocks.STONE && state.getMaterial() == Material.STONE) {
+						if (state.isOf(Blocks.STONE)) {
 							heights.add(y);
 							break;
 						}
@@ -144,7 +142,7 @@ public class TaskNetherCave extends TaskTimer {
 					if (glow) playermp.addStatusEffect(new StatusEffectInstance(StatusEffects.GLOWING, 200, 0, false, false));
 					if (playermp.getEntityWorld().getRegistryKey() == World.OVERWORLD) {
 						if (playermp.getPos().getY() < minY || playermp.getPos().getY() > maxY)
-							playermp.damage(DamageSource.IN_WALL, 1.0f);
+							playermp.damage(playermp.getDamageSources().inWall(), 1.0f);
 
 						double particleY = -1;
 						if (playermp.getPos().getY() < minY + 5)
@@ -152,8 +150,8 @@ public class TaskNetherCave extends TaskTimer {
 						if (playermp.getPos().getY() > maxY - 5)
 							particleY = maxY - 2;
 						if (particleY > 0) {
-							playermp.getWorld().spawnParticles(playermp, ParticleTypes.PORTAL, false,
-									playermp.getPos().getX(), particleY, playermp.getPos().getZ(), 100, 2, 0, 2, 0);
+							((ServerWorld)playermp.getWorld()).spawnParticles(playermp, ParticleTypes.PORTAL, false,
+									playermp.getPos().getX(), particleY, playermp.getPos().getZ(), 100, 2.0, 0.0, 2.0, 0.0);
 						}
 					}
 				});

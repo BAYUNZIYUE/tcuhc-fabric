@@ -41,11 +41,11 @@ public class SpectateTargetUtil {
 			if (target.isAlive()) {
 				ServerPlayerEntity playermp = player.getRealPlayer().get();
 				Vec3d pos = playermp.getPos();
-				ArmorStandEntity armorStand = new ArmorStandEntity(playermp.world, pos.x, pos.y, pos.z);
+				ArmorStandEntity armorStand = new ArmorStandEntity(playermp.getWorld(), pos.x, pos.y, pos.z);
 				armorStand.setInvisible(true);
 				armorStand.setInvulnerable(true);
 				armorStand.setNoGravity(true);
-				playermp.world.spawnEntity(armorStand);
+				playermp.getWorld().spawnEntity(armorStand);
 				return armorStand;
 			}
 		}

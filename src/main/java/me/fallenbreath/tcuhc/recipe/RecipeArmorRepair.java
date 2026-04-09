@@ -1,28 +1,30 @@
 package me.fallenbreath.tcuhc.recipe;
 
-import net.minecraft.inventory.CraftingInventory;
+import net.minecraft.inventory.RecipeInputInventory;
 import net.minecraft.item.ArmorItem;
 import net.minecraft.item.ItemStack;
+import net.minecraft.recipe.book.CraftingRecipeCategory;
 import net.minecraft.recipe.RecipeSerializer;
 import net.minecraft.recipe.SpecialCraftingRecipe;
+import net.minecraft.registry.DynamicRegistryManager;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 
 public class RecipeArmorRepair extends SpecialCraftingRecipe
 {
-	public RecipeArmorRepair(Identifier id)
+	public RecipeArmorRepair(Identifier id, CraftingRecipeCategory category)
 	{
-		super(id);
+		super(id, category);
 	}
 
 	@Override
-	public boolean matches(CraftingInventory inv, World world)
+	public boolean matches(RecipeInputInventory inv, World world)
 	{
-		return this.craft(inv) != ItemStack.EMPTY;
+		return !this.craft(inv, world.getRegistryManager()).isEmpty();
 	}
 
 	@Override
-	public ItemStack craft(CraftingInventory inv)
+	public ItemStack craft(RecipeInputInventory inv, DynamicRegistryManager registryManager)
 	{
 		ItemStack armor = null;
 		for (int i = 0; i < inv.size(); ++i)

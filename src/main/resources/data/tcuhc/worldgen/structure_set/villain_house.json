@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "tcuhc:villain_house",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 36,
+    "separation": 22,
+    "salt": 1323770494
+  }
+}

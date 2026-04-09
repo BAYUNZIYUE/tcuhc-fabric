@@ -7,6 +7,7 @@ import net.minecraft.block.Blocks;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.entity.damage.DamageTypes;
 import net.minecraft.entity.projectile.ArrowEntity;
 import net.minecraft.entity.projectile.PersistentProjectileEntity;
 import net.minecraft.fluid.FluidState;
@@ -38,8 +39,8 @@ public abstract class ArrowEntityMixin extends PersistentProjectileEntity {
     @Unique
     private float getExplosionResistance(World world, BlockPos blockPos)
     {
-        BlockState blockState = this.world.getBlockState(blockPos);
-        FluidState fluidState = this.world.getFluidState(blockPos);
+        BlockState blockState = this.getWorld().getBlockState(blockPos);
+        FluidState fluidState = this.getWorld().getFluidState(blockPos);
         return Math.max(blockState.getBlock().getBlastResistance(), fluidState.getBlastResistance());
     }
 
@@ -57,9 +58,9 @@ public abstract class ArrowEntityMixin extends PersistentProjectileEntity {
     {
         if (this.isRemoved()) return;
         if (this.airTime % (this.isCritical()? 2 : 3) != 0) return;
-        this.world.createExplosion(this, this.getPos().getX(), this.getPos().getY(), this.getPos().getZ(), power, Explosion.DestructionType.DESTROY);
-        BlockPos arrowpos = new BlockPos(this.getPos());
-        if (getExplosionResistance(world, arrowpos) > 6.01f)
+        this.getWorld().createExplosion(this, this.getPos().getX(), this.getPos().getY(), this.getPos().getZ(), power, World.ExplosionSourceType.MOB);
+        BlockPos arrowpos = BlockPos.ofFloored(this.getPos());
+        if (getExplosionResistance(this.getWorld(), arrowpos) > 6.01f)
         {
             return;
         }
@@ -70,9 +71,9 @@ public abstract class ArrowEntityMixin extends PersistentProjectileEntity {
                 for (int z = -1; z <= 1; z++)
                 {
                     BlockPos pos = arrowpos.add(x, y, z);
-                    if (getExplosionResistance(world, pos) < 6.01f)
+                    if (getExplosionResistance(this.getWorld(), pos) < 6.01f)
                     {
-                        this.world.setBlockState(pos, Blocks.AIR.getDefaultState());
+                        this.getWorld().setBlockState(pos, Blocks.AIR.getDefaultState());
                     }
                 }
             }

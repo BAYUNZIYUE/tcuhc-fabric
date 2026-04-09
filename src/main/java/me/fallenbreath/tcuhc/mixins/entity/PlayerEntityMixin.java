@@ -7,9 +7,11 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.damage.DamageTypes;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
+import net.minecraft.registry.tag.DamageTypeTags;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.world.World;
@@ -92,7 +94,7 @@ public abstract class PlayerEntityMixin extends LivingEntity
 		PlayerEntity self = (PlayerEntity)(Object)this;
 		// reduce flying into wall damage under icarus
 		if (UhcGameManager.getBattleType() == UhcGameManager.EnumBattleType.ICARUS &&
-				source == DamageSource.FLY_INTO_WALL && amount > 0.0F) {
+				source.isOf(DamageTypes.FLY_INTO_WALL) && amount > 0.0F) {
 			modifiedDamageAmount *= 0.5F;
 		}
 
@@ -104,7 +106,7 @@ public abstract class PlayerEntityMixin extends LivingEntity
 
 			// reduce player melee attack under bomber
 			if (UhcGameManager.getGameMode() == UhcGameManager.EnumMode.BOMBER && !blocked) {
-				if (!source.isExplosive() || !source.isProjectile())
+				if (!source.isIn(DamageTypeTags.IS_EXPLOSION) || !source.isIn(DamageTypeTags.IS_PROJECTILE))
 					modifiedDamageAmount *= 0.5F;
 			}
 

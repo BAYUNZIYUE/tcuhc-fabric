@@ -1,29 +1,31 @@
 package me.fallenbreath.tcuhc.recipe;
 
-import net.minecraft.inventory.CraftingInventory;
+import net.minecraft.inventory.RecipeInputInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtInt;
+import net.minecraft.recipe.book.CraftingRecipeCategory;
 import net.minecraft.recipe.RecipeSerializer;
 import net.minecraft.recipe.SpecialCraftingRecipe;
+import net.minecraft.registry.DynamicRegistryManager;
 import net.minecraft.util.Identifier;
 import net.minecraft.world.World;
 
 public class RecipeGoldenApple extends SpecialCraftingRecipe
 {
-	public RecipeGoldenApple(Identifier id)
+	public RecipeGoldenApple(Identifier id, CraftingRecipeCategory category)
 	{
-		super(id);
+		super(id, category);
 	}
 
 	@Override
-	public boolean matches(CraftingInventory inv, World world)
+	public boolean matches(RecipeInputInventory inv, World world)
 	{
-		return this.craft(inv) != ItemStack.EMPTY;
+		return !this.craft(inv, world.getRegistryManager()).isEmpty();
 	}
 
 	@Override
-	public ItemStack craft(CraftingInventory inv)
+	public ItemStack craft(RecipeInputInventory inv, DynamicRegistryManager registryManager)
 	{
 		boolean hasApple = false;
 		int goldCnt = 0;

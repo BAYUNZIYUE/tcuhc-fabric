@@ -9,6 +9,7 @@ import me.fallenbreath.tcuhc.options.Options;
 import me.fallenbreath.tcuhc.task.Task.TaskTimer;
 import net.minecraft.server.network.ServerPlayerEntity;
 
+import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 import net.minecraft.world.border.WorldBorder;
 

@@ -33,7 +33,7 @@ public class TaskKeepSpectate extends TaskTimer {
 				if (target != null)
 				{
 					player.setCameraEntity(target);
-					if (player.world != target.world)
+					if (player.getWorld() != target.getWorld())
 					{
 						player.networkHandler.onSpectatorTeleport(new SpectatorTeleportC2SPacket(target.getUuid()));
 					}

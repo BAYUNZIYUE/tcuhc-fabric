@@ -2,9 +2,11 @@ package me.fallenbreath.tcuhc.mixins.entity;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
-import net.minecraft.entity.damage.EntityDamageSource;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.damage.DamageTypes;
 import net.minecraft.entity.decoration.EndCrystalEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.registry.RegistryKeys;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.BlockPos;
@@ -16,6 +18,8 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.Optional;
 
 @Mixin(EndCrystalEntity.class)
 public abstract class EndCrystalEntityMixin extends Entity
@@ -30,7 +34,7 @@ public abstract class EndCrystalEntityMixin extends Entity
 	private int attackCooldown;
 
 	@Shadow
-	public abstract void setBeamTarget(@Nullable BlockPos blockPos);
+	public abstract void setBeamTarget(Optional<BlockPos> blockPos);
 
 	public EndCrystalEntityMixin(EntityType<?> type, World world)
 	{
@@ -40,9 +44,9 @@ public abstract class EndCrystalEntityMixin extends Entity
 	@Inject(method = "tick", at = @At("TAIL"))
 	private void onTick(CallbackInfo ci)
 	{
-		if (!this.world.isClient())
+		if (!this.getWorld().isClient())
 		{
-			this.setBeamTarget(this.target == null ? null : new BlockPos(this.target.getPos().getX(), this.target.getPos().getY() - 0.5, this.target.getPos().getZ()));
+			this.setBeamTarget(this.target == null ? Optional.empty() : Optional.of(BlockPos.ofFloored(this.target.getX(), this.target.getY() - 0.5, this.target.getZ())));
 
 			double distanceSqrToTarget = this.target == null ? MAX_RANGE_SQR : this.target.squaredDistanceTo(this);
 			if (this.target != null && distanceSqrToTarget < MAX_RANGE_SQR && this.target.canSee(this))  // has valid target
@@ -66,7 +70,8 @@ public abstract class EndCrystalEntityMixin extends Entity
 						amount = 1.0F;
 						this.attackCooldown = 30;
 					}
-					this.target.damage(new EntityDamageSource("mob", this), amount);
+					DamageSource damageSource = new DamageSource(this.getWorld().getRegistryManager().get(RegistryKeys.DAMAGE_TYPE).entryOf(DamageTypes.MOB_ATTACK), this);
+					this.target.damage(damageSource, amount);
 				}
 			}
 			else  // no target
@@ -78,7 +83,7 @@ public abstract class EndCrystalEntityMixin extends Entity
 				if (this.age % 5 == 0)  // search target every 5gt
 				{
 					double maxDistance = MAX_RANGE_SQR;
-					for (PlayerEntity player : this.world.getNonSpectatingEntities(PlayerEntity.class, this.getBoundingBox().expand(32, 10, 32)))
+					for (PlayerEntity player : this.getWorld().getNonSpectatingEntities(PlayerEntity.class, this.getBoundingBox().expand(32, 10, 32)))
 					{
 						if (player.isCreative() || player.isSpectator())
 						{

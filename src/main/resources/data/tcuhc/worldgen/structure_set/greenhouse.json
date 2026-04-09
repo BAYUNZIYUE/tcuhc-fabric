@@ -1,0 +1,14 @@
+{
+  "structures": [
+    {
+      "structure": "tcuhc:greenhouse",
+      "weight": 1
+    }
+  ],
+  "placement": {
+    "type": "minecraft:random_spread",
+    "spacing": 40,
+    "separation": 24,
+    "salt": 981666224
+  }
+}

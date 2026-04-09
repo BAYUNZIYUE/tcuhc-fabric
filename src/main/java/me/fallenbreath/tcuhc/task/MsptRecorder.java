@@ -10,7 +10,11 @@ public class MsptRecorder
 
 	public double getMspt()
 	{
-		return MathHelper.average(this.lastTickLengths);
+		long sum = 0L;
+		for (long lastTickLength : this.lastTickLengths) {
+			sum += lastTickLength;
+		}
+		return sum / (double)this.lastTickLengths.length;
 	}
 
 	public double getThisTickMspt()

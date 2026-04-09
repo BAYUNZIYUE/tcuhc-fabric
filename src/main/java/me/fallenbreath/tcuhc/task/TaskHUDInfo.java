@@ -8,6 +8,8 @@ import me.fallenbreath.tcuhc.UhcGameManager;
 import net.minecraft.network.packet.s2c.play.PlayerListHeaderS2CPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.text.MutableText;
+import net.minecraft.text.Text;
 
 
 
@@ -23,7 +25,7 @@ public class TaskHUDInfo extends Task.TaskTimer
 
 	private Text getHUDTexts(ServerPlayerEntity player)
 	{
-		Text text = Text.literal("");
+		MutableText text = Text.literal("");
 		double mspt = UhcGameManager.instance.msptRecorder.getMspt();
 		double tps = 1000.0D / Math.max(mspt, 50.0D);
 		text.append(Text.literal(String.format("TPS: %.1f MSPT: %.1f Ping: %dms", tps, mspt, player.pingMilliseconds)));

@@ -2,13 +2,13 @@ package me.fallenbreath.tcuhc.mixins.block;
 
 import me.fallenbreath.tcuhc.UhcGameManager;
 import me.fallenbreath.tcuhc.UhcGamePlayer;
-import me.fallenbreath.tcuhc.gen.feature.BonusChestFeature;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.block.entity.ChestBlockEntity;
 import net.minecraft.block.entity.LootableContainerBlockEntity;
 import net.minecraft.entity.player.PlayerEntity;
 
+import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.injection.At;
@@ -18,6 +18,9 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ChestBlockEntity.class)
 public abstract class ChestBlockEntityMixin extends LootableContainerBlockEntity
 {
+	private static final String BONUS_CHEST_NAME = "Bonus Chest";
+	private static final String EMPTY_CHEST_NAME = "Empty Chest";
+
 	protected ChestBlockEntityMixin(BlockEntityType<?> blockEntityType, BlockPos blockPos, BlockState blockState)
 	{
 		super(blockEntityType, blockPos, blockState);
@@ -29,10 +32,10 @@ public abstract class ChestBlockEntityMixin extends LootableContainerBlockEntity
 		if (!player.isCreative() && !player.isSpectator() && this.getCustomName() != null) {
 			UhcGamePlayer.EnumStat stat;
 			switch (this.getCustomName().getString()) {
-				case BonusChestFeature.BONUS_CHEST_NAME:
+				case BONUS_CHEST_NAME:
 					stat = UhcGamePlayer.EnumStat.CHEST_FOUND;
 					break;
-				case BonusChestFeature.EMPTY_CHEST_NAME:
+				case EMPTY_CHEST_NAME:
 					stat = UhcGamePlayer.EnumStat.EMPTY_CHEST_FOUND;
 					break;
 				default:
@@ -50,7 +53,7 @@ public abstract class ChestBlockEntityMixin extends LootableContainerBlockEntity
 		if (!player.isCreative() && !player.isSpectator() && this.getCustomName() != null)
 		{
 			String customName = this.getCustomName().getString();
-			if (customName.equals(BonusChestFeature.BONUS_CHEST_NAME) || customName.equals(BonusChestFeature.EMPTY_CHEST_NAME))
+			if (customName.equals(BONUS_CHEST_NAME) || customName.equals(EMPTY_CHEST_NAME))
 			{
 				this.setCustomName(Text.literal("Opened " + customName));
 			}

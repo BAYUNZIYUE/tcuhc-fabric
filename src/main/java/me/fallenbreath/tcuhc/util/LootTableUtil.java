@@ -1,7 +1,7 @@
 package me.fallenbreath.tcuhc.util;
 
 import com.google.gson.Gson;
-import me.fallenbreath.tcuhc.mixins.loot.LootManagerAccessor;
+import net.minecraft.loot.LootGsons;
 import net.minecraft.loot.LootPool;
 import net.minecraft.loot.entry.LootPoolEntry;
 import net.minecraft.util.JsonHelper;
@@ -16,7 +16,7 @@ public class LootTableUtil
 {
 	public static <T> T getUhcLootData(String type, String dir, Class<T> class_)
 	{
-		Gson gson = LootManagerAccessor.getGSON();
+		Gson gson = LootGsons.getTableGsonBuilder().create();
 		String filePath = String.format("data/tcuhc/%s/%s.json", type, dir);
 		InputStream inputStream = LootTableUtil.class.getClassLoader().getResourceAsStream(filePath);
 		if (inputStream != null && gson != null)
