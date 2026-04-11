@@ -41,6 +41,6 @@ public class UhcRegistry {
 	}
 
 	public static <P extends IntProvider> IntProviderType<P> registerIntProviderType(String name, Codec<P> codec) {
-		return Registry.register(Registries.INT_PROVIDER_TYPE, TcUhcMod.id(name), () -> codec);
+		return Registry.register(Registries.INT_PROVIDER_TYPE, TcUhcMod.id(name), null);
 	}
 }

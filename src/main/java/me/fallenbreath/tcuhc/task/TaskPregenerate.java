@@ -5,17 +5,13 @@
 package me.fallenbreath.tcuhc.task;
 
 import com.google.common.collect.Lists;
-import com.mojang.datafixers.util.Either;
 import me.fallenbreath.tcuhc.UhcGameManager;
-import me.fallenbreath.tcuhc.mixins.task.ServerChunkManagerAccessor;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerChunkManager;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 
 import java.io.File;
@@ -70,26 +66,21 @@ public class TaskPregenerate extends Task
 	private void generateChunks(List<ChunkPos> chunks)
 	{
 		chunks.forEach(this::addTicketAt);
-		ServerChunkManager chunkManager = this.world.getChunkManager();
-		((ServerChunkManagerAccessor) chunkManager).invokeTick();
 		chunks.forEach(chunkPos -> {
 			this.queuedCount.incrementAndGet();
-			ChunkHolder holder = ((ServerChunkManagerAccessor)chunkManager).invokeGetChunkHolder(chunkPos.toLong());
-			if (holder == null)
-			{
-				this.acceptChunkResult(chunkPos, ChunkHolder.UNLOADED_CHUNK);
-			}
-			else
-			{
-				holder.getChunkAt(ChunkStatus.FULL, chunkManager.threadedAnvilChunkStorage).thenAccept(result -> this.acceptChunkResult(chunkPos, result));
-			}
+			ServerChunkManager chunkManager = this.world.getChunkManager();
+			net.minecraft.world.chunk.Chunk chunk = chunkManager.getChunk(chunkPos.x, chunkPos.z, ChunkStatus.FULL, false);
+			this.acceptChunkResult(chunkPos, (net.minecraft.world.chunk.WorldChunk) chunk);
 		});
 	}
 
-	private void acceptChunkResult(ChunkPos chunkPos, Either<Chunk, ChunkHolder.Unloaded> result)
+	private void acceptChunkResult(ChunkPos chunkPos, net.minecraft.world.chunk.WorldChunk result)
 	{
 		this.mcServer.execute(() -> this.removeTicketAt(chunkPos));
-		result.left().orElseThrow(() -> new RuntimeException("Pregenerate for chunk " + chunkPos + " failed"));
+		if (result == null)
+		{
+			throw new RuntimeException("Pregenerate for chunk " + chunkPos + " failed");
+		}
 		this.loadedChunkAmount.incrementAndGet();
 		if (this.queuedCount.decrementAndGet() <= ENQUEUE_THRESHOLD)
 		{

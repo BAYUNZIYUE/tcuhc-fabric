@@ -14,6 +14,8 @@ import net.minecraft.block.Blocks;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.scoreboard.ScoreAccess;
+import net.minecraft.scoreboard.ScoreHolder;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.ScoreboardObjective;
 import net.minecraft.server.world.ServerWorld;
@@ -131,11 +133,17 @@ public class TaskNetherCave extends TaskTimer {
 			float maxY = world.getTopY() - partial * (world.getTopY() - finalMaxY);
 
 			Scoreboard scoreboard = UhcGameManager.instance.getMainScoreboard();
-			ScoreboardObjective objective = scoreboard.getObjective(TaskScoreboard.scoreName);
-			scoreboard.getPlayerScore(lines[0], objective).setScore((int) Math.ceil(minY));
-			scoreboard.getPlayerScore(lines[1], objective).setScore((int) Math.floor(maxY));
-			scoreboard.getPlayerScore(lines[2], objective).setScore(Math.round(partial * finalX));
-			scoreboard.getPlayerScore(lines[3], objective).setScore(Math.round(partial * finalZ));
+			ScoreboardObjective objective = scoreboard.getNullableObjective(TaskScoreboard.scoreName);
+			if (objective != null) {
+				ScoreAccess scoreMinY = scoreboard.getOrCreateScore(ScoreHolder.fromName(lines[0]), objective);
+				ScoreAccess scoreMaxY = scoreboard.getOrCreateScore(ScoreHolder.fromName(lines[1]), objective);
+				ScoreAccess scoreCenterX = scoreboard.getOrCreateScore(ScoreHolder.fromName(lines[2]), objective);
+				ScoreAccess scoreCenterZ = scoreboard.getOrCreateScore(ScoreHolder.fromName(lines[3]), objective);
+				scoreMinY.setScore((int) Math.ceil(minY));
+				scoreMaxY.setScore((int) Math.floor(maxY));
+				scoreCenterX.setScore(Math.round(partial * finalX));
+				scoreCenterZ.setScore(Math.round(partial * finalZ));
+			}
 
 			for (UhcGamePlayer player : combatPlayers) {
 				player.getRealPlayer().ifPresent(playermp -> {

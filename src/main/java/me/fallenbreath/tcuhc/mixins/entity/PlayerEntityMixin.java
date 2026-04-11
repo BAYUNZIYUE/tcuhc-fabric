@@ -3,6 +3,8 @@ package me.fallenbreath.tcuhc.mixins.entity;
 import me.fallenbreath.tcuhc.UhcGameManager;
 import me.fallenbreath.tcuhc.UhcGamePlayer;
 import me.fallenbreath.tcuhc.interfaces.IPlayerInventory;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.LivingEntity;
@@ -11,6 +13,7 @@ import net.minecraft.entity.damage.DamageTypes;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.tag.DamageTypeTags;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
@@ -49,7 +52,8 @@ public abstract class PlayerEntityMixin extends LivingEntity
 	)
 	private ItemStack kingsCrownWillNeverVanish(ItemStack itemStack)
 	{
-		if (itemStack.getNbt() != null && itemStack.getNbt().contains("KingsCrown"))
+		NbtComponent nbtComponent = itemStack.get(DataComponentTypes.CUSTOM_DATA);
+		if (nbtComponent != null && nbtComponent.copyNbt().contains("KingsCrown"))
 		{
 			return ItemStack.EMPTY;
 		}

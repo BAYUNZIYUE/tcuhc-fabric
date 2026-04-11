@@ -12,24 +12,28 @@ import me.fallenbreath.tcuhc.task.Task.TaskTimer;
 import me.fallenbreath.tcuhc.util.TitleUtil;
 import net.minecraft.advancement.AdvancementProgress;
 import net.minecraft.enchantment.Enchantments;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.PotionContentsComponent;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerInventory;
-import net.minecraft.item.DyeableItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtByte;
-import net.minecraft.potion.PotionUtil;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtList;
+import net.minecraft.potion.Potions;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
-import net.minecraft.stat.Stats;
 
+import java.util.Collections;
+import java.util.Optional;
+import net.minecraft.stat.Stats;
 import net.minecraft.text.Text;
 import net.minecraft.util.DyeColor;
 import net.minecraft.util.Formatting;
 import net.minecraft.world.GameMode;
-
-import java.util.Collections;
 
 public class TaskTitleCountDown extends TaskTimer {
 	
@@ -61,8 +65,18 @@ public class TaskTitleCountDown extends TaskTimer {
 				player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 200, 4));  // 10s Resistance V
 				if(UhcGameManager.getBattleType() == UhcGameManager.EnumBattleType.ICARUS) {
 					ItemStack elytra = new ItemStack(Items.ELYTRA);
-					elytra.addEnchantment(Enchantments.MENDING, 1);
-					elytra.addEnchantment(Enchantments.BINDING_CURSE, 1);
+					NbtCompound elytraNbt = new NbtCompound();
+					NbtList enchantmentsNbt = new NbtList();
+					NbtCompound mendingNbt = new NbtCompound();
+					mendingNbt.putString("id", "minecraft:mending");
+					mendingNbt.putInt("lvl", 1);
+					enchantmentsNbt.add(mendingNbt);
+					NbtCompound bindingNbt = new NbtCompound();
+					bindingNbt.putString("id", "minecraft:binding_curse");
+					bindingNbt.putInt("lvl", 1);
+					enchantmentsNbt.add(bindingNbt);
+					elytraNbt.put("Enchantments", enchantmentsNbt);
+					elytra.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(elytraNbt));
 					player.equipStack(EquipmentSlot.CHEST, elytra);
 				} else if(UhcGameManager.getBattleType() == UhcGameManager.EnumBattleType.MARINE) {
 					player.addStatusEffect(new StatusEffectInstance(StatusEffects.WATER_BREATHING, 1200, 0));
@@ -84,19 +98,32 @@ public class TaskTitleCountDown extends TaskTimer {
 						this.getGamePlayer().addBomberModeEffect();
 					case GHOST:
 						this.getGamePlayer().addGhostModeEffect();
-						ItemStack shinyPotion = new ItemStack(Items.SPLASH_POTION).setCustomName(Text.literal("Splash Shiny Potion"));
-						PotionUtil.setCustomPotionEffects(shinyPotion, Collections.singleton(new StatusEffectInstance(StatusEffects.GLOWING, 200, 0)));
+						ItemStack shinyPotion = new ItemStack(Items.SPLASH_POTION);
+						shinyPotion.set(DataComponentTypes.CUSTOM_NAME, Text.literal("Splash Shiny Potion"));
+						NbtCompound shinyNbt = new NbtCompound();
+						shinyNbt.putInt("CustomPotionColor", 0x00FFFF);
+						shinyPotion.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(shinyNbt));
 						player.getInventory().insertStack(shinyPotion);
 						break;
 					case HUNTER:
 						if(this.getGamePlayer().getTeam().getTeamColor() == UhcGameColor.RED) {
-							ItemStack speedPotion = new ItemStack(Items.SPLASH_POTION).setCustomName(Text.literal("Splash Speedy Potion"));
-							PotionUtil.setCustomPotionEffects(speedPotion, Collections.singleton(new StatusEffectInstance(StatusEffects.SPEED, 200, 0)));
+							ItemStack speedPotion = new ItemStack(Items.SPLASH_POTION);
+							speedPotion.set(DataComponentTypes.CUSTOM_NAME, Text.literal("Splash Speedy Potion"));
+							NbtCompound speedNbt = new NbtCompound();
+							speedNbt.putInt("CustomPotionColor", 0x7FC07F);
+							speedPotion.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(speedNbt));
 							player.getInventory().insertStack(speedPotion);
 						} else {
-							ItemStack compass = new ItemStack((Items.COMPASS));
-							compass.setCustomName(Text.of("Hunter's Compass"));
-							compass.addEnchantment(Enchantments.VANISHING_CURSE, 1);
+							ItemStack compass = new ItemStack(Items.COMPASS);
+							compass.set(DataComponentTypes.CUSTOM_NAME, Text.of("Hunter's Compass"));
+							NbtCompound compassNbt = new NbtCompound();
+							NbtList enchantList = new NbtList();
+							NbtCompound vanishNbt = new NbtCompound();
+							vanishNbt.putString("id", "minecraft:vanishing_curse");
+							vanishNbt.putInt("lvl", 1);
+							enchantList.add(vanishNbt);
+							compassNbt.put("Enchantments", enchantList);
+							compass.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(compassNbt));
 							player.getInventory().insertStack(compass);
 						}
 						break;
@@ -104,24 +131,45 @@ public class TaskTitleCountDown extends TaskTimer {
 						if(this.getGamePlayer().getTeam().getTeamColor() == UhcGameColor.RED) {
 							this.getGamePlayer().addGhostModeEffect();
 						} else {
-							ItemStack shinyPotion2 = new ItemStack(Items.SPLASH_POTION).setCustomName(Text.literal("Splash Shiny Potion"));
-							PotionUtil.setCustomPotionEffects(shinyPotion2, Collections.singleton(new StatusEffectInstance(StatusEffects.GLOWING, 200, 0)));
+							ItemStack shinyPotion2 = new ItemStack(Items.SPLASH_POTION);
+							shinyPotion2.set(DataComponentTypes.CUSTOM_NAME, Text.literal("Splash Shiny Potion"));
+							NbtCompound shiny2Nbt = new NbtCompound();
+							shiny2Nbt.putInt("CustomPotionColor", 0x00FFFF);
+							shinyPotion2.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(shiny2Nbt));
 							player.getInventory().insertStack(shinyPotion2);
-							ItemStack compass = new ItemStack((Items.COMPASS));
-							compass.setCustomName(Text.of("Hunter's Compass"));
-							compass.addEnchantment(Enchantments.VANISHING_CURSE, 1);
+							ItemStack compass = new ItemStack(Items.COMPASS);
+							compass.set(DataComponentTypes.CUSTOM_NAME, Text.of("Hunter's Compass"));
+							NbtCompound compassNbt = new NbtCompound();
+							NbtList enchantList = new NbtList();
+							NbtCompound vanishNbt = new NbtCompound();
+							vanishNbt.putString("id", "minecraft:vanishing_curse");
+							vanishNbt.putInt("lvl", 1);
+							enchantList.add(vanishNbt);
+							compassNbt.put("Enchantments", enchantList);
+							compass.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(compassNbt));
 							player.getInventory().insertStack(compass);
 						}
 					case KING:
 						if (this.getGamePlayer().isKing()) {
 							DyeColor dyeColor = this.getGamePlayer().getTeam().getTeamColor().dyeColor;
-							ItemStack kingsHelmet = new ItemStack(Items.LEATHER_HELMET).setCustomName(Text.literal(String.format("%s crown", dyeColor.getName())));
-							kingsHelmet.getOrCreateNbt().put("KingsCrown", NbtByte.of((byte)1));
-							kingsHelmet.getOrCreateNbt().put("Unbreakable", NbtByte.of((byte)1));
-							((DyeableItem)Items.LEATHER_HELMET).setColor(kingsHelmet, dyeColor.getMapColor().color);
-							kingsHelmet.addEnchantment(Enchantments.PROTECTION, 6);
-							kingsHelmet.addEnchantment(Enchantments.BINDING_CURSE, 1);
-							kingsHelmet.addEnchantment(Enchantments.VANISHING_CURSE, 1);
+							ItemStack kingsHelmet = new ItemStack(Items.LEATHER_HELMET);
+							kingsHelmet.set(DataComponentTypes.CUSTOM_NAME, Text.literal(String.format("%s crown", dyeColor.getName())));
+							NbtCompound helmetNbt = new NbtCompound();
+							NbtList helmetEnchants = new NbtList();
+							NbtCompound protNbt = new NbtCompound();
+							protNbt.putString("id", "minecraft:protection");
+							protNbt.putInt("lvl", 6);
+							helmetEnchants.add(protNbt);
+							NbtCompound bindNbt = new NbtCompound();
+							bindNbt.putString("id", "minecraft:binding_curse");
+							bindNbt.putInt("lvl", 1);
+							helmetEnchants.add(bindNbt);
+							NbtCompound vanishNbt = new NbtCompound();
+							vanishNbt.putString("id", "minecraft:vanishing_curse");
+							vanishNbt.putInt("lvl", 1);
+							helmetEnchants.add(vanishNbt);
+							helmetNbt.put("Enchantments", helmetEnchants);
+							kingsHelmet.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(helmetNbt));
 							player.equipStack(EquipmentSlot.HEAD, kingsHelmet);
 						}
 						break;

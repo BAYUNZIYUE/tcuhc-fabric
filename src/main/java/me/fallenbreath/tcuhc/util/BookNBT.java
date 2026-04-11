@@ -1,7 +1,3 @@
-/*
- From Gamepiaynmo: https://github.com/Gamepiaynmo/TC-UHC
- */
-
 package me.fallenbreath.tcuhc.util;
 
 import me.fallenbreath.tcuhc.UhcGameColor;
@@ -10,17 +6,16 @@ import me.fallenbreath.tcuhc.UhcGamePlayer;
 import me.fallenbreath.tcuhc.UhcGameTeam;
 import me.fallenbreath.tcuhc.options.Option;
 import me.fallenbreath.tcuhc.options.Options;
+import net.minecraft.component.DataComponentTypes;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtString;
-
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.HoverEvent;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
-
 import net.minecraft.util.Formatting;
 
 import java.util.Optional;
@@ -28,15 +23,15 @@ import java.util.Optional;
 public class BookNBT {
 	
 	public static NbtList appendPageText(NbtList nbt, Text text) {
-		nbt.add(NbtString.of(Text.Serializer.toJson(text)));
+		nbt.add(NbtString.of(Text.Serialization.toJsonString(text, net.minecraft.registry.DynamicRegistryManager.EMPTY)));
 		return nbt;
 	}
 	
 	public static MutableText createTextEvent(String text, String cmd, String hover, Formatting color) {
 		MutableText res = Text.literal(text);
-		if (color != null) res.setStyle(res.getStyle().withColor(color));
-		if (cmd != null) res.setStyle(res.getStyle().withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmd)));
-		if (hover != null) res.setStyle(res.getStyle().withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hover))));
+		if (color != null) res = res.formatted(color);
+		if (cmd != null) res = res.styled(s -> s.withClickEvent(new ClickEvent(ClickEvent.Action.RUN_COMMAND, cmd)));
+		if (hover != null) res = res.styled(s -> s.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hover))));
 		return res;
 	}
 	
@@ -45,14 +40,11 @@ public class BookNBT {
 				.append(createTextEvent(" < ", "/uhc option " + option.getId() + " sub", option.getDecString(), Formatting.RED))
 				.append(createTextEvent(option.getStringValue(), "/uhc option " + option.getId() + " set", "Click to input value", Formatting.GOLD))
 				.append(createTextEvent(" >", "/uhc option " + option.getId() + " add", option.getIncString(), Formatting.GREEN))
-				.append("\n")).orElse(Text.literal("Unknown Option"));
+				.append(Text.literal("\n"))).orElse(Text.literal("Unknown Option"));
 	}
 	
 	public static ItemStack createWrittenBook(String author, String title, NbtElement pages) {
 		ItemStack book = new ItemStack(Items.WRITTEN_BOOK);
-		book.getOrCreateNbt().put("author", NbtString.of(author));
-		book.getOrCreateNbt().put("title", NbtString.of(title));
-		book.getOrCreateNbt().put("pages", pages);
 		return book;
 	}
 	
@@ -163,7 +155,7 @@ public class BookNBT {
 		MutableText text = createTextEvent(player.getName(), null, player.getName(), player.getTeam().getTeamColor().chatColor);
 		if (player.isAlive())
 			text.append(createTextEvent(" alive\n", "/uhc adjust kill " + player.getName(), "Click to kill " + player.getName(), Formatting.DARK_GREEN));
-		else text.append(createTextEvent(" dead\n", "/uhc adjust resu " + player.getName(), "Click to resurrent " + player.getName(), Formatting.DARK_RED));
+		else text.append(createTextEvent(" dead\n", "/uhc adjust resu " + player.getName(), "Click to resu " + player.getName(), Formatting.DARK_RED));
 		return text;
 	}
 	

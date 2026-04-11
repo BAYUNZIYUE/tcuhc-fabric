@@ -39,7 +39,7 @@ public class UhcGamePlayer extends Taskable {
 	
 	public UhcGamePlayer(ServerPlayerEntity realPlayer) {
 		playerUUID = realPlayer.getUuid();
-		playerName = realPlayer.getEntityName();
+		playerName = realPlayer.getName().getString();
 		isAlive = true;
 	}
 	

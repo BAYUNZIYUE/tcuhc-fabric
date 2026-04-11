@@ -97,9 +97,9 @@ public abstract class EndCrystalEntityMixin extends Entity
 							this.target = player;
 						}
 					}
-					if (this.target != null)  // target found
+					if (this.target != null)
 					{
-						this.target.playSound(SoundEvents.ENTITY_GUARDIAN_ATTACK, SoundCategory.HOSTILE, 1.0F, 1.0F);
+						this.getWorld().playSound(null, this.target.getX(), this.target.getY(), this.target.getZ(), SoundEvents.ENTITY_GUARDIAN_ATTACK, SoundCategory.HOSTILE, 1.0F, 1.0F);
 					}
 				}
 			}

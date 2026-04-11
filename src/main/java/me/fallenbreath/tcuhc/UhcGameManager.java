@@ -16,8 +16,11 @@ import net.minecraft.entity.boss.BossBar;
 import net.minecraft.entity.boss.ServerBossBar;
 import net.minecraft.entity.damage.DamageSource;
 import net.minecraft.particle.ParticleTypes;
+import net.minecraft.scoreboard.ScoreAccess;
+import net.minecraft.scoreboard.ScoreHolder;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.ScoreboardCriterion;
+import net.minecraft.scoreboard.ScoreboardDisplaySlot;
 import net.minecraft.scoreboard.ScoreboardObjective;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.PlayerManager;
@@ -310,11 +313,11 @@ public class UhcGameManager extends Taskable {
 		Scoreboard scoreboard = getMainScoreboard();
 		String name = "Health";
 		ScoreboardObjective objective;
-		if ((objective = scoreboard.getObjective(name)) == null) {
-			objective = scoreboard.addObjective(name, ScoreboardCriterion.HEALTH, Text.literal(name), ScoreboardCriterion.RenderType.HEARTS);
+		if ((objective = scoreboard.getNullableObjective(name)) == null) {
+			objective = scoreboard.addObjective(name, ScoreboardCriterion.HEALTH, Text.literal(name), ScoreboardCriterion.RenderType.HEARTS, true, null);
 		}
-		scoreboard.setObjectiveSlot(0, objective);
-		scoreboard.setObjectiveSlot(2, objective);
+		scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.LIST, objective);
+		scoreboard.setObjectiveSlot(ScoreboardDisplaySlot.BELOW_NAME, objective);
 	}
 	
 	public Scoreboard getMainScoreboard() {
@@ -337,13 +340,13 @@ public class UhcGameManager extends Taskable {
 
 	private void winnerParticles() {
 		for (ServerPlayerEntity player : getServerPlayerManager().getPlayerList()) {
-			if (player.age % 2 == 0 && winnerList.isWinner(player.getEntityName())) {
+			if (player.age % 2 == 0 && winnerList.isWinner(player.getName().getString())) {
 				double angle = (player.age % 360) * 9 * Math.PI / 180;
 				double dx = Math.cos(angle) * 0.6;
 				double dz = Math.sin(angle) * 0.6;
 				double dy = Math.cos(angle) * 0.4;
-				((ServerWorld) player.getWorld()).spawnParticles(ParticleTypes.FLAME, player.getPos().getX() + dx, player.getPos().getY() + dy + player.getStandingEyeHeight() / 2, player.getPos().getZ() + dz, 1, 0, 0, 0, 0);
-				((ServerWorld) player.getWorld()).spawnParticles(ParticleTypes.FLAME, player.getPos().getX() - dx, player.getPos().getY() + dy + player.getStandingEyeHeight() / 2, player.getPos().getZ() - dz, 1, 0, 0, 0, 0);
+				((ServerWorld) player.getWorld()).spawnParticles(ParticleTypes.FLAME, player.getX() + dx, player.getY() + dy + player.getStandingEyeHeight() / 2, player.getZ() + dz, 1, 0, 0, 0, 0);
+				((ServerWorld) player.getWorld()).spawnParticles(ParticleTypes.FLAME, player.getX() - dx, player.getY() + dy + player.getStandingEyeHeight() / 2, player.getZ() - dz, 1, 0, 0, 0, 0);
 			}
 		}
 	}
@@ -392,8 +395,10 @@ public class UhcGameManager extends Taskable {
 	
 	public int getGameTimeRemaining() {
 		Scoreboard scoreboard = getMainScoreboard();
-		ScoreboardObjective objective = scoreboard.getObjective(TaskScoreboard.scoreName);
-		return scoreboard.getPlayerScore(TaskScoreboard.lines[0], objective).getScore();
+		ScoreboardObjective objective = scoreboard.getNullableObjective(TaskScoreboard.scoreName);
+		if (objective == null) return 0;
+		ScoreAccess score = scoreboard.getOrCreateScore(ScoreHolder.fromName(TaskScoreboard.lines[0]), objective);
+		return score.getScore();
 	}
 	
 	public static enum EnumMode {

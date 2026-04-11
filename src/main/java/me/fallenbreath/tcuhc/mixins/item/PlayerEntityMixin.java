@@ -2,9 +2,12 @@ package me.fallenbreath.tcuhc.mixins.item;
 
 import me.fallenbreath.tcuhc.UhcGameManager;
 import me.fallenbreath.tcuhc.UhcGamePlayer;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
@@ -22,13 +25,16 @@ public abstract class PlayerEntityMixin
 		if (self instanceof ServerPlayerEntity && stack.getItem() == Items.GOLDEN_APPLE)
 		{
 			float value;
-			if (stack.getNbt() != null)
-			{
-				int goldenAppleLevel = stack.getNbt().getInt("level");
-				value = goldenAppleLevel / 4.0F;
-			}
-			else
-			{
+			NbtComponent nbtComponent = stack.get(DataComponentTypes.CUSTOM_DATA);
+			if (nbtComponent != null) {
+				NbtCompound nbt = nbtComponent.copyNbt();
+				if (nbt.contains("level")) {
+					int goldenAppleLevel = nbt.getInt("level");
+					value = goldenAppleLevel / 4.0F;
+				} else {
+					value = 1.0F;
+				}
+			} else {
 				value = 1.0F;
 			}
 			UhcGameManager.instance.getUhcPlayerManager().getGamePlayer(self).getStat().addStat(UhcGamePlayer.EnumStat.GOLDEN_APPLE_EATEN, value);

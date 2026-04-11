@@ -6,8 +6,11 @@ import net.minecraft.block.BlockState;
 import net.minecraft.block.entity.BlockEntityType;
 import net.minecraft.block.entity.ChestBlockEntity;
 import net.minecraft.block.entity.LootableContainerBlockEntity;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.player.PlayerEntity;
 
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.text.Text;
 import net.minecraft.util.math.BlockPos;
 import org.spongepowered.asm.mixin.Mixin;
@@ -55,7 +58,6 @@ public abstract class ChestBlockEntityMixin extends LootableContainerBlockEntity
 			String customName = this.getCustomName().getString();
 			if (customName.equals(BONUS_CHEST_NAME) || customName.equals(EMPTY_CHEST_NAME))
 			{
-				this.setCustomName(Text.literal("Opened " + customName));
 			}
 		}
 	}

@@ -1,35 +1,34 @@
 package me.fallenbreath.tcuhc.recipe;
 
-import net.minecraft.inventory.RecipeInputInventory;
 import net.minecraft.item.ArmorItem;
 import net.minecraft.item.ItemStack;
 import net.minecraft.recipe.book.CraftingRecipeCategory;
 import net.minecraft.recipe.RecipeSerializer;
 import net.minecraft.recipe.SpecialCraftingRecipe;
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.util.Identifier;
+import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.world.World;
+import net.minecraft.recipe.input.CraftingRecipeInput;
 
 public class RecipeArmorRepair extends SpecialCraftingRecipe
 {
-	public RecipeArmorRepair(Identifier id, CraftingRecipeCategory category)
+	public RecipeArmorRepair(CraftingRecipeCategory category)
 	{
-		super(id, category);
+		super(category);
 	}
 
 	@Override
-	public boolean matches(RecipeInputInventory inv, World world)
+	public boolean matches(CraftingRecipeInput input, World world)
 	{
-		return !this.craft(inv, world.getRegistryManager()).isEmpty();
+		return !this.craft(input, world.getRegistryManager()).isEmpty();
 	}
 
 	@Override
-	public ItemStack craft(RecipeInputInventory inv, DynamicRegistryManager registryManager)
+	public ItemStack craft(CraftingRecipeInput input, RegistryWrapper.WrapperLookup lookup)
 	{
 		ItemStack armor = null;
-		for (int i = 0; i < inv.size(); ++i)
+		for (int i = 0; i < input.getStackCount(); ++i)
 		{
-			ItemStack itemstack = inv.getStack(i);
+			ItemStack itemstack = input.getStackInSlot(i);
 			if (itemstack.getItem() instanceof ArmorItem)
 			{
 				if (armor == null)
@@ -48,9 +47,9 @@ public class RecipeArmorRepair extends SpecialCraftingRecipe
 		}
 		ArmorItem armorItem = (ArmorItem)armor.getItem();
 		int repairCnt = 0;
-		for (int i = 0; i < inv.size(); ++i)
+		for (int i = 0; i < input.getStackCount(); ++i)
 		{
-			ItemStack itemstack = inv.getStack(i);
+			ItemStack itemstack = input.getStackInSlot(i);
 			if (!itemstack.isEmpty() && !(itemstack.getItem() instanceof ArmorItem))
 			{
 				if (armorItem.canRepair(armor, itemstack))

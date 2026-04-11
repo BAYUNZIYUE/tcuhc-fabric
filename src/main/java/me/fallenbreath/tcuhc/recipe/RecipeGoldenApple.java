@@ -1,37 +1,37 @@
 package me.fallenbreath.tcuhc.recipe;
 
-import net.minecraft.inventory.RecipeInputInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtInt;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.recipe.book.CraftingRecipeCategory;
 import net.minecraft.recipe.RecipeSerializer;
 import net.minecraft.recipe.SpecialCraftingRecipe;
-import net.minecraft.registry.DynamicRegistryManager;
-import net.minecraft.util.Identifier;
+import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.world.World;
+import net.minecraft.recipe.input.CraftingRecipeInput;
 
 public class RecipeGoldenApple extends SpecialCraftingRecipe
 {
-	public RecipeGoldenApple(Identifier id, CraftingRecipeCategory category)
+	public RecipeGoldenApple(CraftingRecipeCategory category)
 	{
-		super(id, category);
+		super(category);
 	}
 
 	@Override
-	public boolean matches(RecipeInputInventory inv, World world)
+	public boolean matches(CraftingRecipeInput input, World world)
 	{
-		return !this.craft(inv, world.getRegistryManager()).isEmpty();
+		return !this.craft(input, world.getRegistryManager()).isEmpty();
 	}
 
 	@Override
-	public ItemStack craft(RecipeInputInventory inv, DynamicRegistryManager registryManager)
+	public ItemStack craft(CraftingRecipeInput input, RegistryWrapper.WrapperLookup lookup)
 	{
 		boolean hasApple = false;
 		int goldCnt = 0;
-		for (int i = 0; i < inv.size(); ++i)
+		for (int i = 0; i < input.getStackCount(); ++i)
 		{
-			ItemStack itemstack = inv.getStack(i);
+			ItemStack itemstack = input.getStackInSlot(i);
 			if (itemstack.getItem() == Items.APPLE)
 			{
 				if (!hasApple)
@@ -52,10 +52,6 @@ public class RecipeGoldenApple extends SpecialCraftingRecipe
 		{
 			int level = goldCnt / 2;
 			ItemStack res = new ItemStack(Items.GOLDEN_APPLE);
-			if (level != 4)
-			{
-				res.getOrCreateNbt().put("level", NbtInt.of(level));
-			}
 			return res;
 		}
 		return ItemStack.EMPTY;

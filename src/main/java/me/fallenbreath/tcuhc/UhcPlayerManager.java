@@ -14,6 +14,8 @@ import me.fallenbreath.tcuhc.task.TaskOnce;
 import me.fallenbreath.tcuhc.util.*;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.ChestBlockEntity;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.ItemEntity;
@@ -28,14 +30,18 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.item.*;
-import net.minecraft.potion.PotionUtil;
-import net.minecraft.potion.Potions;
+import net.minecraft.nbt.NbtCompound;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.scoreboard.AbstractTeam;
+import net.minecraft.scoreboard.ScoreHolder;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.Team;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
+import net.minecraft.text.Text;
+import net.minecraft.util.DyeColor;
+import net.minecraft.util.Formatting;
 
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -126,8 +132,7 @@ public class UhcPlayerManager
 		if (gameManager.getConfigManager().isConfiguring()) {
 			this.getGamePlayer(player).getColorSelected().ifPresent(color -> {
 				ItemStack teamItem = getTeamItem(color);
-				EquipmentSlot slot = MobEntity.getPreferredEquipmentSlot(teamItem);
-				player.equipStack(slot, teamItem);
+				player.equipStack(EquipmentSlot.CHEST, teamItem);
 			});
 			if (gameManager.getConfigManager().isOperator(player))
 				player.getInventory().insertStack(BookNBT.getConfigBook(gameManager));
@@ -155,12 +160,11 @@ public class UhcPlayerManager
 	
 	private ItemStack getTeamItem(UhcGameColor color) {
 		ItemStack stack = new ItemStack(Items.LEATHER_CHESTPLATE);
-		float[] rgb = color.dyeColor.getColorComponents();
-		int r = (int) (rgb[0] * 255);
-		int g = (int) (rgb[1] * 255);
-		int b = (int) (rgb[2] * 255);
-		((DyeableItem)Items.LEATHER_CHESTPLATE).setColor(stack, (((r << 8) | g) << 8) | b);
-		stack.setCustomName(Text.literal(color.dyeColor.toString()));
+		int rgb = color.dyeColor.getEntityColor();
+		int r = (rgb >> 16) & 0xFF;
+		int g = (rgb >> 8) & 0xFF;
+		int b = rgb & 0xFF;
+		stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(color.dyeColor.toString()));
 		return stack;
 	}
 	
@@ -254,7 +258,7 @@ public class UhcPlayerManager
 				player.getWorld().playSound(null, player.getX(), player.getY(), player.getZ(), SoundEvents.ENTITY_LIGHTNING_BOLT_THUNDER, SoundCategory.PLAYERS, 10000.0F, 0.8F + UhcGameManager.rand.nextFloat() * 0.2F);
 			}
 		}
-		ItemEntity entityitem = player.dropStack(PlayerItems.getPlayerItem(player.getEntityName(), player.isOnFire()));
+		ItemEntity entityitem = player.dropStack(PlayerItems.getPlayerItem(player.getName().getString(), player.isOnFire()));
 		if (entityitem != null)
 		{
 			entityitem.setPickupDelay(40);
@@ -325,7 +329,7 @@ public class UhcPlayerManager
 			else msg += source.getName() + byEnding;
 			player.sendMessage(Text.literal(Formatting.RED + msg), false);
 			if (source.getAttacker() instanceof ServerPlayerEntity) {
-				((ServerPlayerEntity)source.getAttacker()).sendMessage(Text.literal(String.format("%sYou dealt %.2f damage to %s", Formatting.BLUE, amount, player.getEntityName())), false);
+				((ServerPlayerEntity)source.getAttacker()).sendMessage(Text.literal(String.format("%sYou dealt %.2f damage to %s", Formatting.BLUE, amount, player.getName().getString())), false);
 			}
 		}
 	}
@@ -653,7 +657,6 @@ public class UhcPlayerManager
 			spTeam.setCollisionRule(teamColl ? AbstractTeam.CollisionRule.ALWAYS : AbstractTeam.CollisionRule.PUSH_OTHER_TEAMS);
 			gameManager.broadcastMessage(team.getColorfulTeamName() + " Members:");
 			for (UhcGamePlayer player : team.getPlayers()) {
-				scoreboard.addPlayerToTeam(player.getName(), spTeam);
 				String message = "    " + team.getTeamColor().chatColor + player.getName();
 				if (player.isKing()) message += " [KING]";
 				gameManager.broadcastMessage(message);
@@ -677,8 +680,12 @@ public class UhcPlayerManager
 			case BOMBER:{
 				ItemStack item1 = new ItemStack(Items.TIPPED_ARROW, 64);
 				ItemStack item2 = new ItemStack(Items.TIPPED_ARROW, 64);
-				PotionUtil.setPotion(item1, Potions.LUCK);
-				PotionUtil.setPotion(item2, Potions.LUCK);
+				NbtCompound nbt1 = new NbtCompound();
+				nbt1.putInt("CustomPotionColor", 0x8B008B);
+				item1.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt1));
+				NbtCompound nbt2 = new NbtCompound();
+				nbt2.putInt("CustomPotionColor", 0x8B008B);
+				item2.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt2));
 				chest.setStack(slot++, item1);
 				chest.setStack(slot++, item2);
 				if (gameManager.getOptions().getBooleanOptionValue("TNTBomber"))
@@ -703,8 +710,7 @@ public class UhcPlayerManager
 			@Override
 			public void onFindPlayer(ServerPlayerEntity player) {
 				BlockPos newpos = homePos.add(UhcGameManager.rand.nextInt(5) - 2, 0, UhcGameManager.rand.nextInt(5) - 2);
-				player.updatePosition(newpos.getX() + 0.5, newpos.getY() + 0.5, newpos.getZ() + 0.5);
-				player.teleport(newpos.getX() + 0.5, newpos.getY() + 0.5, newpos.getZ() + 0.5);
+				player.requestTeleport(newpos.getX() + 0.5, newpos.getY() + 0.5, newpos.getZ() + 0.5);
 				player.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(health);
 				player.fallDistance = 0.0f;
 				player.getInventory().clear();

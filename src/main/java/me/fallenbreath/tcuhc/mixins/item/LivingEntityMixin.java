@@ -2,12 +2,15 @@ package me.fallenbreath.tcuhc.mixins.item;
 
 import com.google.common.collect.Lists;
 import com.mojang.datafixers.util.Pair;
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.world.World;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -34,9 +37,20 @@ public abstract class LivingEntityMixin
 	)
 	private void modifyEffects(ItemStack stack, World world, LivingEntity targetEntity, CallbackInfo ci)
 	{
-		if (stack.getItem() == Items.GOLDEN_APPLE && stack.getNbt() != null)
+		if (stack.getItem() == Items.GOLDEN_APPLE)
 		{
-			this.goldenAppleLevel = stack.getNbt().getInt("level");
+			NbtComponent nbtComponent = stack.get(DataComponentTypes.CUSTOM_DATA);
+			if (nbtComponent != null) {
+				NbtCompound nbt = nbtComponent.copyNbt();
+				if (nbt.contains("level"))
+				{
+					this.goldenAppleLevel = nbt.getInt("level");
+				} else {
+					this.goldenAppleLevel = 0;
+				}
+			} else {
+				this.goldenAppleLevel = 0;
+			}
 		}
 		else
 		{
@@ -63,7 +77,7 @@ public abstract class LivingEntityMixin
 				StatusEffectInstance effect = newList.get(i).getFirst();
 				float chance = newList.get(i).getSecond();
 				StatusEffectInstance newEffect = new StatusEffectInstance(effect);
-				StatusEffect effectType = newEffect.getEffectType();
+				StatusEffect effectType = newEffect.getEffectType().value();
 				if (effectType == StatusEffects.REGENERATION)
 				{
 					((StatusEffectInstanceAccessor)newEffect).setDuration((level + 1) * 20);
