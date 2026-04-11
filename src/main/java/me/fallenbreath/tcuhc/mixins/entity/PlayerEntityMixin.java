@@ -40,31 +40,10 @@ public abstract class PlayerEntityMixin extends LivingEntity
 	}
 
 	/**
-	 * Added tag check for KING mode's king's crown item
-	 */
-	@ModifyArg(
-			method = "vanishCursedItems",
-			at = @At(
-					value = "INVOKE",
-					target = "Lnet/minecraft/enchantment/EnchantmentHelper;hasVanishingCurse(Lnet/minecraft/item/ItemStack;)Z"
-			),
-			index = 0
-	)
-	private ItemStack kingsCrownWillNeverVanish(ItemStack itemStack)
-	{
-		NbtComponent nbtComponent = itemStack.get(DataComponentTypes.CUSTOM_DATA);
-		if (nbtComponent != null && nbtComponent.copyNbt().contains("KingsCrown"))
-		{
-			return ItemStack.EMPTY;
-		}
-		return itemStack;
-	}
-
-	/**
 	 * TC Plugin: Kill entity hook
 	 */
 	@Inject(method = "onKilledOther", at = @At("TAIL"))
-	private void onKill(ServerWorld serverWorld, LivingEntity livingEntity, CallbackInfo ci)
+	private void onKill(ServerWorld serverWorld, LivingEntity livingEntity, CallbackInfoReturnable<Boolean> cir)
 	{
 		UhcGameManager.instance.getUhcPlayerManager().getGamePlayer((PlayerEntity)(Object)this).getStat().addStat(UhcGamePlayer.EnumStat.ENTITY_KILLED, 1);
 	}
