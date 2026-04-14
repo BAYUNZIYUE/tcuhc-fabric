@@ -215,7 +215,7 @@ public abstract class SinglePieceLandStructure extends Structure
 
 		private static StructurePlacementData createPlacementData(BlockRotation rotation)
 		{
-			return new StructurePlacementData().setRotation(rotation).setMirror(BlockMirror.NONE).setIgnoreEntities(false);
+			return new StructurePlacementData().setRotation(rotation).setMirror(BlockMirror.NONE).setIgnoreEntities(true);
 		}
 
 		private void ensureStructureDataExists()
