@@ -73,9 +73,9 @@ public class TaskPregenerate extends Task
 		}
 		ServerChunkManager chunkManager = this.world.getChunkManager();
 		net.minecraft.world.chunk.Chunk chunk = chunkManager.getChunk(this.loadingChunk.x, this.loadingChunk.z, ChunkStatus.FULL, false);
-		if (chunk instanceof net.minecraft.world.chunk.WorldChunk worldChunk)
+		if (chunk instanceof net.minecraft.world.chunk.WorldChunk)
 		{
-			this.acceptChunkResult(this.loadingChunk, worldChunk);
+			this.acceptChunkResult(this.loadingChunk, (net.minecraft.world.chunk.WorldChunk) chunk);
 		}
 	}
 
