@@ -38,19 +38,6 @@ public abstract class MinecraftServerMixin
 		world.setSpawnPos(spawnPos, spawnAngle);
 	}
 
-	@Inject(
-			method = "runServer",
-			at = @At(
-					value = "INVOKE",
-					target = "Lnet/minecraft/server/MinecraftServer;setFavicon(Lnet/minecraft/server/ServerMetadata;)V"
-			)
-	)
-	private void postInitUhcGameManager(CallbackInfo ci)
-	{
-		this.uhcGameManager.onServerInited();
-		this.serverInited = true;
-	}
-
 	@Inject(method = "tick", at = @At(value = "HEAD"))
 	private void tickDurationSamplingStart(CallbackInfo ci)
 	{
@@ -81,6 +68,11 @@ public abstract class MinecraftServerMixin
 	)
 	private void tickUhcGameManager(CallbackInfo ci)
 	{
+		if (!this.serverInited)
+		{
+			this.uhcGameManager.onServerInited();
+			this.serverInited = true;
+		}
 		this.uhcGameManager.tick();
 	}
 }

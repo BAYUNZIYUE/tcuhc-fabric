@@ -25,8 +25,7 @@ public class TaskPregenerate extends Task
 {
 	public static final ChunkTicketType<ChunkPos> PRE_GENERATE = ChunkTicketType.create("pre_generate", Comparator.comparingLong(ChunkPos::toLong));
 
-	private static final int PARALLELISM_LIMIT = Runtime.getRuntime().availableProcessors() * 4;
-	private static final int ENQUEUE_THRESHOLD = PARALLELISM_LIMIT / 3;
+	private static final int TICKET_RADIUS = 1;
 
 	private long startTimeMili;
 	private final List<ChunkPos> chunkToLoad;
@@ -34,7 +33,8 @@ public class TaskPregenerate extends Task
 	private final MinecraftServer mcServer;
 	private final ServerWorld world;
 	private final AtomicInteger loadedChunkAmount = new AtomicInteger(0);
-	private final AtomicInteger queuedCount = new AtomicInteger(0);
+	private ChunkPos loadingChunk;
+	private List<ChunkPos> loadingTickets = List.of();
 
 	public TaskPregenerate(MinecraftServer mcServer, int borderSize, ServerWorld worldServer)
 	{
@@ -51,41 +51,45 @@ public class TaskPregenerate extends Task
 
 	private void tryGenerateChunks()
 	{
-		int count = PARALLELISM_LIMIT - this.queuedCount.get();
-		List<ChunkPos> chunks = Lists.newArrayList();
-		for (int i = 0; i < count && this.iterator.hasNext(); i++)
+		if (this.loadingChunk != null || !this.iterator.hasNext())
 		{
-			chunks.add(this.iterator.next());
+			return;
 		}
-		if (!chunks.isEmpty())
-		{
-			this.mcServer.execute(() -> this.generateChunks(chunks));
-		}
+		this.generateChunk(this.iterator.next());
 	}
 
-	private void generateChunks(List<ChunkPos> chunks)
+	private void generateChunk(ChunkPos chunkPos)
 	{
-		chunks.forEach(this::addTicketAt);
-		chunks.forEach(chunkPos -> {
-			this.queuedCount.incrementAndGet();
-			ServerChunkManager chunkManager = this.world.getChunkManager();
-			net.minecraft.world.chunk.Chunk chunk = chunkManager.getChunk(chunkPos.x, chunkPos.z, ChunkStatus.FULL, false);
-			this.acceptChunkResult(chunkPos, (net.minecraft.world.chunk.WorldChunk) chunk);
-		});
+		this.loadingChunk = chunkPos;
+		this.loadingTickets = createTicketArea(chunkPos);
+		this.loadingTickets.forEach(this::addTicketAt);
+	}
+
+	private void pollChunkResult()
+	{
+		if (this.loadingChunk == null)
+		{
+			return;
+		}
+		ServerChunkManager chunkManager = this.world.getChunkManager();
+		net.minecraft.world.chunk.Chunk chunk = chunkManager.getChunk(this.loadingChunk.x, this.loadingChunk.z, ChunkStatus.FULL, false);
+		if (chunk instanceof net.minecraft.world.chunk.WorldChunk worldChunk)
+		{
+			this.acceptChunkResult(this.loadingChunk, worldChunk);
+		}
 	}
 
 	private void acceptChunkResult(ChunkPos chunkPos, net.minecraft.world.chunk.WorldChunk result)
 	{
-		this.mcServer.execute(() -> this.removeTicketAt(chunkPos));
+		List<ChunkPos> tickets = this.loadingTickets;
+		this.loadingChunk = null;
+		this.loadingTickets = List.of();
+		tickets.forEach(this::removeTicketAt);
 		if (result == null)
 		{
 			throw new RuntimeException("Pregenerate for chunk " + chunkPos + " failed");
 		}
 		this.loadedChunkAmount.incrementAndGet();
-		if (this.queuedCount.decrementAndGet() <= ENQUEUE_THRESHOLD)
-		{
-			this.tryGenerateChunks();
-		}
 	}
 
 	private void addTicketAt(ChunkPos pos)
@@ -101,7 +105,7 @@ public class TaskPregenerate extends Task
 	@Override
 	public boolean hasFinished()
 	{
-		return !this.iterator.hasNext();
+		return !this.iterator.hasNext() && this.loadingChunk == null;
 	}
 
 	private static String makeTime(long miliSeconds)
@@ -121,12 +125,14 @@ public class TaskPregenerate extends Task
 		long milliEta = current > 0 ? miliPassed * (total - current) / current : -1;
 		if (log)
 		{
-			UhcGameManager.LOG.info(String.format("%d/%d %.2f%% chunks of %s loaded.", current, total, percentage, getWorldName()));
+			UhcGameManager.LOG.info(String.format("%d/%d %.2f%% 的 %s 区块已加载。", current, total, percentage, getWorldName()));
 		}
 		if (say)
 		{
-			UhcGameManager.instance.broadcastMessage(String.format("Chunk generate of %s: %.2f%%, ETA %s", getWorldName(), percentage, makeTime(milliEta)));
+			UhcGameManager.instance.broadcastMessage(String.format("%s 区块生成进度：%.2f%%，预计剩余 %s", getWorldName(), percentage, makeTime(milliEta)));
 		}
+		this.pollChunkResult();
+		this.tryGenerateChunks();
 	}
 
 	@Override
@@ -140,7 +146,7 @@ public class TaskPregenerate extends Task
 	public void onFinish()
 	{
 		long miliPassed = Util.getMeasuringTimeMs() - this.startTimeMili;
-		UhcGameManager.instance.broadcastMessage(String.format("Pre-generating of %s finished, took %s", getWorldName(), makeTime(miliPassed)));
+		UhcGameManager.instance.broadcastMessage(String.format("%s 预生成完成，耗时 %s", getWorldName(), makeTime(miliPassed)));
 		if (this.world == UhcGameManager.instance.getOverWorld())
 		{
 			try
@@ -208,5 +214,18 @@ public class TaskPregenerate extends Task
 			}
 		}
 		return list;
+	}
+
+	private static List<ChunkPos> createTicketArea(ChunkPos center)
+	{
+		List<ChunkPos> tickets = Lists.newArrayList();
+		for (int dx = -TICKET_RADIUS; dx <= TICKET_RADIUS; dx++)
+		{
+			for (int dz = -TICKET_RADIUS; dz <= TICKET_RADIUS; dz++)
+			{
+				tickets.add(new ChunkPos(center.x + dx, center.z + dz));
+			}
+		}
+		return tickets;
 	}
 }
