@@ -11,8 +11,10 @@ import me.fallenbreath.tcuhc.UhcPlayerManager;
 import me.fallenbreath.tcuhc.task.Task.TaskTimer;
 import me.fallenbreath.tcuhc.util.TitleUtil;
 import net.minecraft.advancement.AdvancementProgress;
+import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.enchantment.Enchantments;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.DyedColorComponent;
 import net.minecraft.component.type.PotionContentsComponent;
 import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.EquipmentSlot;
@@ -22,8 +24,10 @@ import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtList;
 import net.minecraft.potion.Potions;
+import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.Registries;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.network.ServerPlayerEntity;
 
@@ -65,18 +69,8 @@ public class TaskTitleCountDown extends TaskTimer {
 				player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 200, 4));  // 10s Resistance V
 				if(UhcGameManager.getBattleType() == UhcGameManager.EnumBattleType.ICARUS) {
 					ItemStack elytra = new ItemStack(Items.ELYTRA);
-					NbtCompound elytraNbt = new NbtCompound();
-					NbtList enchantmentsNbt = new NbtList();
-					NbtCompound mendingNbt = new NbtCompound();
-					mendingNbt.putString("id", "minecraft:mending");
-					mendingNbt.putInt("lvl", 1);
-					enchantmentsNbt.add(mendingNbt);
-					NbtCompound bindingNbt = new NbtCompound();
-					bindingNbt.putString("id", "minecraft:binding_curse");
-					bindingNbt.putInt("lvl", 1);
-					enchantmentsNbt.add(bindingNbt);
-					elytraNbt.put("Enchantments", enchantmentsNbt);
-					elytra.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(elytraNbt));
+					addEnchantment(elytra, Enchantments.MENDING, 1);
+					addEnchantment(elytra, Enchantments.BINDING_CURSE, 1);
 					player.equipStack(EquipmentSlot.CHEST, elytra);
 				} else if(UhcGameManager.getBattleType() == UhcGameManager.EnumBattleType.MARINE) {
 					player.addStatusEffect(new StatusEffectInstance(StatusEffects.WATER_BREATHING, 1200, 0));
@@ -116,14 +110,7 @@ public class TaskTitleCountDown extends TaskTimer {
 						} else {
 							ItemStack compass = new ItemStack(Items.COMPASS);
 							compass.set(DataComponentTypes.CUSTOM_NAME, Text.of("猎人指南针"));
-							NbtCompound compassNbt = new NbtCompound();
-							NbtList enchantList = new NbtList();
-							NbtCompound vanishNbt = new NbtCompound();
-							vanishNbt.putString("id", "minecraft:vanishing_curse");
-							vanishNbt.putInt("lvl", 1);
-							enchantList.add(vanishNbt);
-							compassNbt.put("Enchantments", enchantList);
-							compass.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(compassNbt));
+							addEnchantment(compass, Enchantments.VANISHING_CURSE, 1);
 							player.getInventory().insertStack(compass);
 						}
 						break;
@@ -139,37 +126,18 @@ public class TaskTitleCountDown extends TaskTimer {
 							player.getInventory().insertStack(shinyPotion2);
 							ItemStack compass = new ItemStack(Items.COMPASS);
 							compass.set(DataComponentTypes.CUSTOM_NAME, Text.of("猎人指南针"));
-							NbtCompound compassNbt = new NbtCompound();
-							NbtList enchantList = new NbtList();
-							NbtCompound vanishNbt = new NbtCompound();
-							vanishNbt.putString("id", "minecraft:vanishing_curse");
-							vanishNbt.putInt("lvl", 1);
-							enchantList.add(vanishNbt);
-							compassNbt.put("Enchantments", enchantList);
-							compass.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(compassNbt));
+							addEnchantment(compass, Enchantments.VANISHING_CURSE, 1);
 							player.getInventory().insertStack(compass);
 						}
 					case KING:
 						if (this.getGamePlayer().isKing()) {
 							DyeColor dyeColor = this.getGamePlayer().getTeam().getTeamColor().dyeColor;
 							ItemStack kingsHelmet = new ItemStack(Items.LEATHER_HELMET);
+							kingsHelmet.set(DataComponentTypes.DYED_COLOR, new DyedColorComponent(dyeColor.getEntityColor(), false));
 							kingsHelmet.set(DataComponentTypes.CUSTOM_NAME, Text.literal(String.format("%s之冠", dyeColor.getName())));
-							NbtCompound helmetNbt = new NbtCompound();
-							NbtList helmetEnchants = new NbtList();
-							NbtCompound protNbt = new NbtCompound();
-							protNbt.putString("id", "minecraft:protection");
-							protNbt.putInt("lvl", 6);
-							helmetEnchants.add(protNbt);
-							NbtCompound bindNbt = new NbtCompound();
-							bindNbt.putString("id", "minecraft:binding_curse");
-							bindNbt.putInt("lvl", 1);
-							helmetEnchants.add(bindNbt);
-							NbtCompound vanishNbt = new NbtCompound();
-							vanishNbt.putString("id", "minecraft:vanishing_curse");
-							vanishNbt.putInt("lvl", 1);
-							helmetEnchants.add(vanishNbt);
-							helmetNbt.put("Enchantments", helmetEnchants);
-							kingsHelmet.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(helmetNbt));
+							addEnchantment(kingsHelmet, Enchantments.PROTECTION, 6);
+							addEnchantment(kingsHelmet, Enchantments.BINDING_CURSE, 1);
+							addEnchantment(kingsHelmet, Enchantments.VANISHING_CURSE, 1);
 							player.equipStack(EquipmentSlot.HEAD, kingsHelmet);
 						}
 						break;
@@ -180,6 +148,22 @@ public class TaskTitleCountDown extends TaskTimer {
 			UhcGameManager.instance.addTask(new TaskKingEffectField());
 		}
 		UhcGameManager.instance.addTask(new TaskScoreboard());
+	}
+
+	private static RegistryEntry<net.minecraft.enchantment.Enchantment> getEnchantment(net.minecraft.registry.RegistryKey<net.minecraft.enchantment.Enchantment> key) {
+		Registry<net.minecraft.enchantment.Enchantment> enchantmentRegistry = (Registry<net.minecraft.enchantment.Enchantment>) Registries.REGISTRIES.get(RegistryKeys.ENCHANTMENT.getValue());
+		if (enchantmentRegistry == null) {
+			throw new IllegalStateException("Missing enchantment registry");
+		}
+		return enchantmentRegistry.getEntry(key).orElseThrow(RuntimeException::new);
+	}
+
+	private static void setEnchantments(ItemStack stack, java.util.function.Consumer<net.minecraft.component.type.ItemEnchantmentsComponent.Builder> consumer) {
+		EnchantmentHelper.apply(stack, consumer);
+	}
+
+	private static void addEnchantment(ItemStack stack, net.minecraft.registry.RegistryKey<net.minecraft.enchantment.Enchantment> key, int level) {
+		setEnchantments(stack, builder -> builder.set(getEnchantment(key), level));
 	}
 
 }

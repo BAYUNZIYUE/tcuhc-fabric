@@ -1,6 +1,7 @@
 package me.fallenbreath.tcuhc.util;
 
 import com.google.common.collect.Maps;
+import net.minecraft.enchantment.EnchantmentHelper;
 import net.minecraft.enchantment.Enchantment;
 import net.minecraft.enchantment.Enchantments;
 import net.minecraft.entity.player.PlayerEntity;
@@ -10,6 +11,9 @@ import net.minecraft.item.Items;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.NbtComponent;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKeys;
+import net.minecraft.registry.Registries;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.text.Text;
 import org.jetbrains.annotations.Nullable;
@@ -125,6 +129,12 @@ public class PlayerItems
 	private static ItemStack createEnchantedItem(Item item, int level)
 	{
 		ItemStack stack = new ItemStack(item);
+		Registry<Enchantment> enchantmentRegistry = (Registry<Enchantment>) Registries.REGISTRIES.get(RegistryKeys.ENCHANTMENT.getValue());
+		if (enchantmentRegistry == null) {
+			throw new IllegalStateException("Missing enchantment registry");
+		}
+		RegistryEntry<Enchantment> sharpness = enchantmentRegistry.getEntry(Enchantments.SHARPNESS).orElseThrow(RuntimeException::new);
+		EnchantmentHelper.apply(stack, builder -> builder.set(sharpness, level));
 		return stack;
 	}
 }
