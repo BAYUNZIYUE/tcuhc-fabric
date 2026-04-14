@@ -1,0 +1,7 @@
+{
+  "type": "tcuhc:ender_pyramid",
+  "biomes": "#tcuhc:has_structure/ender_pyramid",
+  "spawn_overrides": {},
+  "step": "surface_structures",
+  "terrain_adaptation": "beard_thin"
+}

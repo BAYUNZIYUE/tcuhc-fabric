@@ -1,0 +1,18 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 981666224,
+    "separation": 8,
+    "spacing": 32
+  },
+  "structures": [
+    {
+      "structure": "tcuhc:greenhouse_desert",
+      "weight": 1
+    },
+    {
+      "structure": "tcuhc:greenhouse_snow",
+      "weight": 1
+    }
+  ]
+}

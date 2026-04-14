@@ -1,0 +1,14 @@
+{
+  "placement": {
+    "type": "minecraft:random_spread",
+    "salt": 591497057,
+    "separation": 24,
+    "spacing": 40
+  },
+  "structures": [
+    {
+      "structure": "tcuhc:ender_pyramid",
+      "weight": 1
+    }
+  ]
+}
