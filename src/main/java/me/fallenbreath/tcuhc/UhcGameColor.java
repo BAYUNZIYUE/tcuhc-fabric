@@ -9,16 +9,16 @@ import net.minecraft.util.Formatting;
 
 public enum UhcGameColor
 {
-	RED(DyeColor.RED, Formatting.RED, "Red", 0),
-	BLUE(DyeColor.BLUE, Formatting.BLUE, "Blue", 1),
-	YELLOW(DyeColor.YELLOW, Formatting.YELLOW, "Yellow", 2),
-	GREEN(DyeColor.LIME, Formatting.GREEN, "Green", 3),
-	ORANGE(DyeColor.ORANGE, Formatting.GOLD, "Orange", 4),
-	PURPLE(DyeColor.PURPLE, Formatting.LIGHT_PURPLE, "Purple", 5),
-	CYAN(DyeColor.CYAN, Formatting.DARK_BLUE, "Cyan", 6),
-	BROWN(DyeColor.BROWN, Formatting.DARK_RED, "Brown", 7),
-	WHITE(DyeColor.WHITE, Formatting.WHITE, "White", 8),
-	BLACK(DyeColor.BLACK, Formatting.BLACK, "Black", 9);
+	RED(DyeColor.RED, Formatting.RED, "红", 0),
+	BLUE(DyeColor.BLUE, Formatting.BLUE, "蓝", 1),
+	YELLOW(DyeColor.YELLOW, Formatting.YELLOW, "黄", 2),
+	GREEN(DyeColor.LIME, Formatting.GREEN, "绿", 3),
+	ORANGE(DyeColor.ORANGE, Formatting.GOLD, "橙", 4),
+	PURPLE(DyeColor.PURPLE, Formatting.LIGHT_PURPLE, "紫", 5),
+	CYAN(DyeColor.CYAN, Formatting.DARK_BLUE, "青", 6),
+	BROWN(DyeColor.BROWN, Formatting.DARK_RED, "棕", 7),
+	WHITE(DyeColor.WHITE, Formatting.WHITE, "白", 8),
+	BLACK(DyeColor.BLACK, Formatting.BLACK, "黑", 9);
 	
 	public static final int MAX_TEAM_COLORS = 8;
 	private static int rand = 0;

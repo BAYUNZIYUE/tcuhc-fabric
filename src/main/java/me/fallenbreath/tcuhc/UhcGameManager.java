@@ -221,7 +221,7 @@ public class UhcGameManager extends Taskable {
 	
 	public void startGame(ServerPlayerEntity operator) {
 		if (isGamePlaying || !configManager.isConfiguring()) {
-			operator.sendMessage(Text.literal("It's not time to start."), false);
+			operator.sendMessage(Text.literal("现在还不能开始游戏。"), false);
 			return;
 		}
 		boolean autoTeams = uhcOptions.getBooleanOptionValue("randomTeams");
@@ -266,8 +266,8 @@ public class UhcGameManager extends Taskable {
 	}
 
 	public void onTeamWin(UhcGameTeam team) {
-		TitleUtil.sendTitleToAllPlayers(team.getColorfulTeamName() + " Wins !", "Congratulations !");
-		this.broadcastMessage(team.getColorfulTeamName() + " is the winner !");
+		TitleUtil.sendTitleToAllPlayers(team.getColorfulTeamName() + " 获胜！", "恭喜！");
+		this.broadcastMessage(team.getColorfulTeamName() + " 是本局冠军！");
 		for (UhcGamePlayer player : playerManager.getCombatPlayers()) {
 			if (player.getStat().getFloatStat(EnumStat.ALIVE_TIME) < 1)
 				player.getStat().setStat(EnumStat.ALIVE_TIME, uhcOptions.getIntegerOptionValue("gameTime") - this.getGameTimeRemaining());
@@ -311,7 +311,7 @@ public class UhcGameManager extends Taskable {
 	
 	public void displayHealth() {
 		Scoreboard scoreboard = getMainScoreboard();
-		String name = "Health";
+		String name = "生命值";
 		ScoreboardObjective objective;
 		if ((objective = scoreboard.getNullableObjective(name)) == null) {
 			objective = scoreboard.addObjective(name, ScoreboardCriterion.HEALTH, Text.literal(name), ScoreboardCriterion.RenderType.HEARTS, true, null);
@@ -422,24 +422,78 @@ public class UhcGameManager extends Taskable {
 		{
 			return deathRegen;
 		}
+
+		@Override
+		public String toString()
+		{
+			switch (this)
+			{
+				case NORMAL: return "普通";
+				case SOLO: return "单人";
+				case BOSS: return "Boss";
+				case GHOST: return "幽灵";
+				case BOMBER: return "爆破手";
+				case KING: return "国王";
+				case HUNTER: return "猎人";
+				case GHOSTHUNTER: return "幽灵猎人";
+				default: return name();
+			}
+		}
 	}
 
 	public static enum EnumBattleType {
 		NORMAL,
 		MARINE,
-		ICARUS
+		ICARUS;
+
+		@Override
+		public String toString()
+		{
+			switch (this)
+			{
+				case NORMAL: return "普通";
+				case MARINE: return "海战";
+				case ICARUS: return "伊卡洛斯";
+				default: return name();
+			}
+		}
 	}
 
 	public static enum EnumLevelType {
 		DEFAULT,
 		AMPLIFIED,
-		LARGEBIOMES
+		LARGEBIOMES;
+
+		@Override
+		public String toString()
+		{
+			switch (this)
+			{
+				case DEFAULT: return "默认";
+				case AMPLIFIED: return "放大化";
+				case LARGEBIOMES: return "大型生物群系";
+				default: return name();
+			}
+		}
 	}
 
 	public static enum Weather {
 		NORMAL,
 		CLEAR,
 		RAIN,
-		THUNDER
+		THUNDER;
+
+		@Override
+		public String toString()
+		{
+			switch (this)
+			{
+				case NORMAL: return "默认";
+				case CLEAR: return "晴天";
+				case RAIN: return "下雨";
+				case THUNDER: return "雷暴";
+				default: return name();
+			}
+		}
 	}
 }

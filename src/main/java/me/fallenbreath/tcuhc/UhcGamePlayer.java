@@ -97,19 +97,19 @@ public class UhcGamePlayer extends Taskable {
 	}
 
 	public enum EnumStat {
-		PLAYER_KILLED("Player Killed"),
-		ENTITY_KILLED("Entity Killed"),
-		DAMAGE_TAKEN("Damage Taken"),
-		DAMAGE_BLOCKED("Damage Blocked"),
-		DAMAGE_DEALT("Damage Dealt"),
-		DAMAGE_BEING_BLOCKED("Damage Being Blocked"),
-		FRIENDLY_FIRE("Friendly Fire"),
-		CHEST_FOUND("Chest Found"),
-		EMPTY_CHEST_FOUND("Empty Chest Found"),
-		DIAMOND_FOUND("Diamond Found"),
-		HEALTH_HEALED("Health Healed"),
-		GOLDEN_APPLE_EATEN("Golden Apple Eaten"),
-		ALIVE_TIME("Alive Time");
+		PLAYER_KILLED("击杀玩家"),
+		ENTITY_KILLED("击杀生物"),
+		DAMAGE_TAKEN("承受伤害"),
+		DAMAGE_BLOCKED("格挡伤害"),
+		DAMAGE_DEALT("造成伤害"),
+		DAMAGE_BEING_BLOCKED("被格挡伤害"),
+		FRIENDLY_FIRE("友伤"),
+		CHEST_FOUND("发现宝箱"),
+		EMPTY_CHEST_FOUND("发现空宝箱"),
+		DIAMOND_FOUND("发现钻石"),
+		HEALTH_HEALED("恢复生命"),
+		GOLDEN_APPLE_EATEN("食用金苹果"),
+		ALIVE_TIME("存活时间");
 		
 		public final String name;
 		

@@ -48,19 +48,19 @@ public class UhcGameTeam
 	static class TeamType {
 		private UhcGameColor color = UhcGameColor.WHITE;
 		private UhcGamePlayer player;
-		private String name = "Team Empty", teamName = "Team Empty";
+		private String name = "空队伍", teamName = "空队伍";
 		
 		public void setColor(UhcGameColor color) {
 			this.color = color;
 			player = null;
-			teamName = name = "Team " + color.name;
+			teamName = name = color.name + "队";
 		}
 		
 		public void setPlayer(UhcGamePlayer player) {
 			this.player = player;
 			color = UhcGameColor.randomColor();
 			teamName = player.getName();
-			name = "Team " + teamName;
+			name = teamName + "队";
 		}
 		
 		public String getColorfulName() {

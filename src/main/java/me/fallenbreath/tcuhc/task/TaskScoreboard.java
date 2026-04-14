@@ -27,8 +27,8 @@ public class TaskScoreboard extends TaskTimer {
 	private final int gameTime, startTime, endTime, netherTime, caveTime;
 	
 	public static final String scoreName = "time";
-	public static final String displayName = "UHC Game";
-	public static final String[] lines = { "Time Remaining:", "Border Radius:", "Nether Close:", "Cave Close:" };
+	public static final String displayName = "UHC 对局";
+	public static final String[] lines = { "剩余时间：", "边界半径：", "地狱关闭：", "洞穴关闭：" };
 	
 	private Scoreboard scoreboard;
 	private ScoreboardObjective objective;

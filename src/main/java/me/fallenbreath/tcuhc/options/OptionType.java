@@ -10,6 +10,23 @@ import java.lang.reflect.Method;
 public abstract class OptionType {
 	
 	protected Object value;
+
+	protected static String getDisplayString(Object value) {
+		if (value instanceof Boolean) {
+			return (boolean) value ? "开启" : "关闭";
+		}
+		if (value instanceof Enum) {
+			String enumName = ((Enum) value).name();
+			switch (enumName) {
+				case "PEACEFUL": return "和平";
+				case "EASY": return "简单";
+				case "NORMAL": return "普通";
+				case "HARD": return "困难";
+				default: break;
+			}
+		}
+		return value.toString();
+	}
 	
 	public abstract String getIncString();
 	public abstract String getDecString();
@@ -18,7 +35,7 @@ public abstract class OptionType {
 	public abstract void setValue(Object nvalue);
 	public abstract void setStringValue(String nvalue);
 	public Object getValue() { return value; }
-	public String getStringValue() { return getValue().toString(); }
+	public String getStringValue() { return getDisplayString(getValue()); }
 	
 	@Override
 	public String toString() {
@@ -74,12 +91,14 @@ public abstract class OptionType {
 		public BooleanType() {
 			value = false;
 		}
-		@Override public String getIncString() { return "true"; }
-		@Override public String getDecString() { return "false"; }
+		@Override public String getIncString() { return "开启"; }
+		@Override public String getDecString() { return "关闭"; }
 		@Override public void applyInc() { value = true; }
 		@Override public void applyDec() { value = false; }
 		@Override public void setValue(Object nvalue) { value = (boolean) nvalue; }
-		@Override public void setStringValue(String nvalue) { setValue(Boolean.parseBoolean(nvalue)); }
+		@Override public void setStringValue(String nvalue) {
+			setValue("true".equalsIgnoreCase(nvalue) || "开启".equals(nvalue) || "开".equals(nvalue) || "是".equals(nvalue));
+		}
 		
 	}
 	
@@ -111,8 +130,8 @@ public abstract class OptionType {
 			this.enums = (Object[]) invokeMethod(getMethod(enums, "values"), null);
 			value = 0;
 		}
-		@Override public String getIncString() { return enums[((int) value + 1) % enums.length].toString(); }
-		@Override public String getDecString() { return enums[((int) value + enums.length - 1) % enums.length].toString(); }
+		@Override public String getIncString() { return getDisplayString(enums[((int) value + 1) % enums.length]); }
+		@Override public String getDecString() { return getDisplayString(enums[((int) value + enums.length - 1) % enums.length]); }
 		@Override public void applyInc() { value = ((int) value + 1) % enums.length; }
 		@Override public void applyDec() { value = ((int) value + enums.length - 1) % enums.length; }
 		@Override public void setValue(Object nvalue) {

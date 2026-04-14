@@ -29,20 +29,20 @@ public class TaskBorderReminder extends TaskTimer {
 		gameTime = options.getIntegerOptionValue("gameTime");
 		border = UhcGameManager.instance.getOverWorld().getWorldBorder();
 		border.interpolateSize(borderStart, borderEnd, (borderEndTime - borderStartTime) * 1000L);
-		UhcGameManager.instance.broadcastMessage(Formatting.DARK_RED + "World border started to shrink.");
+		UhcGameManager.instance.broadcastMessage(Formatting.DARK_RED + "世界边界开始收缩了。");
 	}
 	
 	@Override
 	public void onTimer() {
 		if (this.hasFinished()) return;
 		if (gameTime - UhcGameManager.instance.getGameTimeRemaining() >= borderEndTime) {
-			UhcGameManager.instance.broadcastMessage(Formatting.DARK_RED + "World border stopped shrinking.");
+			UhcGameManager.instance.broadcastMessage(Formatting.DARK_RED + "世界边界已停止收缩。");
 			this.setCanceled();
 		}
 		for (ServerPlayerEntity player : UhcGameManager.instance.getServerPlayerManager().getPlayerList()) {
 			if (border.getDistanceInsideBorder(player) < 5 && !(Math.abs(player.getX()) < borderEnd / 2.0 && Math.abs(player.getZ()) < borderEnd / 2.0)
 					&& !player.isCreative() && !player.isSpectator() && UhcGameManager.instance.getUhcPlayerManager().getGamePlayer(player).borderRemindCooldown()) {
-				player.sendMessage(Text.literal(Formatting.DARK_RED + "You will fall behind the world border!"), false);
+				player.sendMessage(Text.literal(Formatting.DARK_RED + "你快被世界边界甩在外面了！"), false);
 			}
 		}
 	}

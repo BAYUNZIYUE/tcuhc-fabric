@@ -28,7 +28,7 @@ public class TaskHUDInfo extends Task.TaskTimer
 		MutableText text = Text.literal("");
 		double mspt = UhcGameManager.instance.msptRecorder.getMspt();
 		double tps = 1000.0D / Math.max(mspt, 50.0D);
-		text.append(Text.literal(String.format("TPS: %.1f MSPT: %.1f", tps, mspt)));
+		text.append(Text.literal(String.format("TPS：%.1f  MSPT：%.1f", tps, mspt)));
 		return text;
 	}
 

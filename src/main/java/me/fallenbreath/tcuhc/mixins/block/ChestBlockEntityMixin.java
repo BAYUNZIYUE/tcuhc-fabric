@@ -21,8 +21,8 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 @Mixin(ChestBlockEntity.class)
 public abstract class ChestBlockEntityMixin extends LootableContainerBlockEntity
 {
-	private static final String BONUS_CHEST_NAME = "Bonus Chest";
-	private static final String EMPTY_CHEST_NAME = "Empty Chest";
+	private static final String BONUS_CHEST_NAME = "奖励宝箱";
+	private static final String EMPTY_CHEST_NAME = "空宝箱";
 
 	protected ChestBlockEntityMixin(BlockEntityType<?> blockEntityType, BlockPos blockPos, BlockState blockState)
 	{

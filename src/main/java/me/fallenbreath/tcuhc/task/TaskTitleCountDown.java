@@ -52,7 +52,7 @@ public class TaskTitleCountDown extends TaskTimer {
 	
 	@Override
 	public void onFinish() {
-		TitleUtil.sendTitleToAllPlayers("Game Started !", "Enjoy Yourself !");
+		TitleUtil.sendTitleToAllPlayers("游戏开始！", "祝你玩得开心！");
 		UhcGameManager.instance.getUhcPlayerManager().getCombatPlayers().forEach(player -> player.addTask(new TaskFindPlayer(player) {
 			@SuppressWarnings("ConstantConditions")
 			@Override
@@ -99,7 +99,7 @@ public class TaskTitleCountDown extends TaskTimer {
 					case GHOST:
 						this.getGamePlayer().addGhostModeEffect();
 						ItemStack shinyPotion = new ItemStack(Items.SPLASH_POTION);
-						shinyPotion.set(DataComponentTypes.CUSTOM_NAME, Text.literal("Splash Shiny Potion"));
+						shinyPotion.set(DataComponentTypes.CUSTOM_NAME, Text.literal("闪耀喷溅药水"));
 						NbtCompound shinyNbt = new NbtCompound();
 						shinyNbt.putInt("CustomPotionColor", 0x00FFFF);
 						shinyPotion.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(shinyNbt));
@@ -108,14 +108,14 @@ public class TaskTitleCountDown extends TaskTimer {
 					case HUNTER:
 						if(this.getGamePlayer().getTeam().getTeamColor() == UhcGameColor.RED) {
 							ItemStack speedPotion = new ItemStack(Items.SPLASH_POTION);
-							speedPotion.set(DataComponentTypes.CUSTOM_NAME, Text.literal("Splash Speedy Potion"));
+							speedPotion.set(DataComponentTypes.CUSTOM_NAME, Text.literal("疾速喷溅药水"));
 							NbtCompound speedNbt = new NbtCompound();
 							speedNbt.putInt("CustomPotionColor", 0x7FC07F);
 							speedPotion.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(speedNbt));
 							player.getInventory().insertStack(speedPotion);
 						} else {
 							ItemStack compass = new ItemStack(Items.COMPASS);
-							compass.set(DataComponentTypes.CUSTOM_NAME, Text.of("Hunter's Compass"));
+							compass.set(DataComponentTypes.CUSTOM_NAME, Text.of("猎人指南针"));
 							NbtCompound compassNbt = new NbtCompound();
 							NbtList enchantList = new NbtList();
 							NbtCompound vanishNbt = new NbtCompound();
@@ -132,13 +132,13 @@ public class TaskTitleCountDown extends TaskTimer {
 							this.getGamePlayer().addGhostModeEffect();
 						} else {
 							ItemStack shinyPotion2 = new ItemStack(Items.SPLASH_POTION);
-							shinyPotion2.set(DataComponentTypes.CUSTOM_NAME, Text.literal("Splash Shiny Potion"));
+							shinyPotion2.set(DataComponentTypes.CUSTOM_NAME, Text.literal("闪耀喷溅药水"));
 							NbtCompound shiny2Nbt = new NbtCompound();
 							shiny2Nbt.putInt("CustomPotionColor", 0x00FFFF);
 							shinyPotion2.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(shiny2Nbt));
 							player.getInventory().insertStack(shinyPotion2);
 							ItemStack compass = new ItemStack(Items.COMPASS);
-							compass.set(DataComponentTypes.CUSTOM_NAME, Text.of("Hunter's Compass"));
+							compass.set(DataComponentTypes.CUSTOM_NAME, Text.of("猎人指南针"));
 							NbtCompound compassNbt = new NbtCompound();
 							NbtList enchantList = new NbtList();
 							NbtCompound vanishNbt = new NbtCompound();
@@ -153,7 +153,7 @@ public class TaskTitleCountDown extends TaskTimer {
 						if (this.getGamePlayer().isKing()) {
 							DyeColor dyeColor = this.getGamePlayer().getTeam().getTeamColor().dyeColor;
 							ItemStack kingsHelmet = new ItemStack(Items.LEATHER_HELMET);
-							kingsHelmet.set(DataComponentTypes.CUSTOM_NAME, Text.literal(String.format("%s crown", dyeColor.getName())));
+							kingsHelmet.set(DataComponentTypes.CUSTOM_NAME, Text.literal(String.format("%s之冠", dyeColor.getName())));
 							NbtCompound helmetNbt = new NbtCompound();
 							NbtList helmetEnchants = new NbtList();
 							NbtCompound protNbt = new NbtCompound();
