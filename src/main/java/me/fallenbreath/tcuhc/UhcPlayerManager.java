@@ -15,6 +15,7 @@ import me.fallenbreath.tcuhc.util.*;
 import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.ChestBlockEntity;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.DyedColorComponent;
 import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EquipmentSlot;
@@ -37,11 +38,13 @@ import net.minecraft.scoreboard.ScoreHolder;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.Team;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.network.packet.s2c.play.OpenWrittenBookS2CPacket;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.DyeColor;
 import net.minecraft.util.Formatting;
+import net.minecraft.util.Hand;
 
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
@@ -159,16 +162,41 @@ public class UhcPlayerManager
 	public void refreshConfigBook() {
 		UhcGamePlayer operator = gameManager.getConfigManager().getOperator();
 		if (operator != null) {
-			operator.getRealPlayer().ifPresent(this::regiveConfigItems);
+			operator.getRealPlayer().ifPresent(this::refreshConfigBooksInPlace);
+		}
+	}
+
+	private void refreshConfigBooksInPlace(ServerPlayerEntity player) {
+		boolean hasConfigBook = false;
+		boolean hasPlayerBook = false;
+		boolean reopenMainHandBook = BookNBT.isTcUhcBook(player.getMainHandStack(), BookNBT.CONFIG_BOOK) || BookNBT.isTcUhcBook(player.getMainHandStack(), BookNBT.PLAYER_BOOK);
+		PlayerInventory inventory = player.getInventory();
+		for (int slot = 0; slot < inventory.size(); slot++) {
+			ItemStack stack = inventory.getStack(slot);
+			if (BookNBT.isTcUhcBook(stack, BookNBT.CONFIG_BOOK)) {
+				inventory.setStack(slot, BookNBT.getConfigBook(gameManager));
+				hasConfigBook = true;
+			} else if (BookNBT.isTcUhcBook(stack, BookNBT.PLAYER_BOOK)) {
+				inventory.setStack(slot, BookNBT.getPlayerBook(gameManager));
+				hasPlayerBook = true;
+			}
+		}
+		if (!hasConfigBook && gameManager.getConfigManager().isOperator(player)) {
+			inventory.insertStack(BookNBT.getConfigBook(gameManager));
+		}
+		if (!hasPlayerBook) {
+			inventory.insertStack(BookNBT.getPlayerBook(gameManager));
+		}
+		player.playerScreenHandler.sendContentUpdates();
+		if (reopenMainHandBook) {
+			player.networkHandler.sendPacket(new OpenWrittenBookS2CPacket(Hand.MAIN_HAND));
 		}
 	}
 	
 	private ItemStack getTeamItem(UhcGameColor color) {
 		ItemStack stack = new ItemStack(Items.LEATHER_CHESTPLATE);
 		int rgb = color.dyeColor.getEntityColor();
-		int r = (rgb >> 16) & 0xFF;
-		int g = (rgb >> 8) & 0xFF;
-		int b = rgb & 0xFF;
+		stack.set(DataComponentTypes.DYED_COLOR, new DyedColorComponent(rgb, false));
 		stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(color.name + "队胸甲"));
 		return stack;
 	}
@@ -662,6 +690,7 @@ public class UhcPlayerManager
 			spTeam.setCollisionRule(teamColl ? AbstractTeam.CollisionRule.ALWAYS : AbstractTeam.CollisionRule.PUSH_OTHER_TEAMS);
 			gameManager.broadcastMessage(team.getColorfulTeamName() + " Members:");
 			for (UhcGamePlayer player : team.getPlayers()) {
+				scoreboard.addScoreHolderToTeam(player.getName(), spTeam);
 				String message = "    " + team.getTeamColor().chatColor + player.getName();
 				if (player.isKing()) message += " [KING]";
 				gameManager.broadcastMessage(message);

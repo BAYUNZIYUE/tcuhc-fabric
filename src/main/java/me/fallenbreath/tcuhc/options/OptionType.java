@@ -106,6 +106,23 @@ public abstract class OptionType {
 		
 		private final Class enumClass;
 		private Object[] enums;
+
+		private Object parseEnumValue(String rawValue) {
+			try {
+				return Enum.valueOf(enumClass, rawValue);
+			} catch (IllegalArgumentException ignored) {
+			}
+			for (Object enumValue : enums) {
+				Enum<?> enumConstant = (Enum<?>) enumValue;
+				if (enumConstant.name().equalsIgnoreCase(rawValue)) {
+					return enumValue;
+				}
+				if (enumConstant.toString().equals(rawValue) || getDisplayString(enumValue).equals(rawValue)) {
+					return enumValue;
+				}
+			}
+			return null;
+		}
 		
 		private Method getMethod(Class clazz, String func, Class ... params) {
 			try {
@@ -143,7 +160,7 @@ public abstract class OptionType {
 			}
 		}
 		@Override public Object getValue() { return enums[(int) value]; }
-		@Override public void setStringValue(String nvalue) { setValue(invokeMethod(getMethod(enumClass, "valueOf", String.class), null, nvalue)); }
+		@Override public void setStringValue(String nvalue) { setValue(parseEnumValue(nvalue)); }
 		
 	}
 	
