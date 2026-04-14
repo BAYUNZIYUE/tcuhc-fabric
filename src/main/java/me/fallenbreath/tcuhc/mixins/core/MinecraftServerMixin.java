@@ -60,6 +60,19 @@ public abstract class MinecraftServerMixin
 	}
 
 	@Inject(
+			method = "loadWorld",
+			at = @At("RETURN")
+	)
+	private void postInitUhcGameManager(CallbackInfo ci)
+	{
+		if (!this.serverInited)
+		{
+			this.uhcGameManager.onServerInited();
+			this.serverInited = true;
+		}
+	}
+
+	@Inject(
 			method = "tick",
 			at = @At(
 					value = "CONSTANT",
@@ -68,11 +81,6 @@ public abstract class MinecraftServerMixin
 	)
 	private void tickUhcGameManager(CallbackInfo ci)
 	{
-		if (!this.serverInited)
-		{
-			this.uhcGameManager.onServerInited();
-			this.serverInited = true;
-		}
 		this.uhcGameManager.tick();
 	}
 }
