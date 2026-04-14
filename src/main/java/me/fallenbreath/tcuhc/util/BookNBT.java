@@ -7,24 +7,32 @@ import me.fallenbreath.tcuhc.UhcGameTeam;
 import me.fallenbreath.tcuhc.options.Option;
 import me.fallenbreath.tcuhc.options.Options;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.NbtComponent;
+import net.minecraft.component.type.WrittenBookContentComponent;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtElement;
-import net.minecraft.nbt.NbtList;
-import net.minecraft.nbt.NbtString;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.HoverEvent;
 import net.minecraft.text.MutableText;
+import net.minecraft.text.RawFilteredPair;
 import net.minecraft.text.Text;
 import net.minecraft.util.Formatting;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 public class BookNBT {
+	private static final String BOOK_KIND_KEY = "TcUhcBookKind";
+
+	public static final String CONFIG_BOOK = "config";
+	public static final String PLAYER_BOOK = "player";
+	public static final String ADJUST_BOOK = "adjust";
 	
-	public static NbtList appendPageText(NbtList nbt, Text text) {
-		nbt.add(NbtString.of(Text.Serialization.toJsonString(text, net.minecraft.registry.DynamicRegistryManager.EMPTY)));
-		return nbt;
+	public static List<RawFilteredPair<Text>> appendPageText(List<RawFilteredPair<Text>> pages, Text text) {
+		pages.add(RawFilteredPair.of(text));
+		return pages;
 	}
 	
 	public static MutableText createTextEvent(String text, String cmd, String hover, Formatting color) {
@@ -38,14 +46,36 @@ public class BookNBT {
 	public static Text createOptionText(Optional<Option> opt) {
 		return opt.map(option -> createTextEvent(option.getName(), null, option.getDescription(), Formatting.BLUE)
 				.append(createTextEvent(" < ", "/uhc option " + option.getId() + " sub", option.getDecString(), Formatting.RED))
-				.append(createTextEvent(option.getStringValue(), "/uhc option " + option.getId() + " set", "Click to input value", Formatting.GOLD))
+				.append(createTextEvent(option.getStringValue(), "/uhc option " + option.getId() + " set", "点击输入数值", Formatting.GOLD))
 				.append(createTextEvent(" >", "/uhc option " + option.getId() + " add", option.getIncString(), Formatting.GREEN))
-				.append(Text.literal("\n"))).orElse(Text.literal("Unknown Option"));
+				.append(Text.literal("\n"))).orElse(Text.literal("未知配置项"));
 	}
 	
-	public static ItemStack createWrittenBook(String author, String title, NbtElement pages) {
+	public static ItemStack createWrittenBook(String author, String title, List<RawFilteredPair<Text>> pages, String kind) {
 		ItemStack book = new ItemStack(Items.WRITTEN_BOOK);
+		book.set(DataComponentTypes.WRITTEN_BOOK_CONTENT, new WrittenBookContentComponent(RawFilteredPair.of(title), author, 0, pages, true));
+		NbtCompound nbt = new NbtCompound();
+		nbt.putString(BOOK_KIND_KEY, kind);
+		book.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
 		return book;
+	}
+
+	public static boolean isTcUhcBook(ItemStack stack) {
+		return getBookKind(stack) != null;
+	}
+
+	public static boolean isTcUhcBook(ItemStack stack, String kind) {
+		String bookKind = getBookKind(stack);
+		return bookKind != null && bookKind.equals(kind);
+	}
+
+	public static String getBookKind(ItemStack stack) {
+		NbtComponent customData = stack.get(DataComponentTypes.CUSTOM_DATA);
+		if (customData == null) {
+			return null;
+		}
+		NbtCompound nbt = customData.copyNbt();
+		return nbt.contains(BOOK_KIND_KEY) ? nbt.getString(BOOK_KIND_KEY) : null;
 	}
 	
 	public static Text createReturn() {
@@ -54,9 +84,9 @@ public class BookNBT {
 	
 	public static ItemStack getConfigBook(UhcGameManager gameManager) {
 		Options options = gameManager.getOptions();
-		NbtList pages = new NbtList();
+		List<RawFilteredPair<Text>> pages = new ArrayList<RawFilteredPair<Text>>();
 		
-		appendPageText(pages, Text.literal("General Settings\n\n")
+		appendPageText(pages, Text.literal("基础设置\n\n")
 				.append(createOptionText(options.getOption("gameMode")))
 				.append(createOptionText(options.getOption("battleType")))
 				.append(createOptionText(options.getOption("levelType")))
@@ -64,7 +94,7 @@ public class BookNBT {
 				.append(createOptionText(options.getOption("teamCount")))
 		);
 
-		appendPageText(pages, Text.literal("Game Settings\n\n")
+		appendPageText(pages, Text.literal("游戏设置\n\n")
 				.append(createOptionText(options.getOption("difficulty")))
 				.append(createOptionText(options.getOption("weather")))
 				.append(createOptionText(options.getOption("daylightCycle")))
@@ -76,7 +106,7 @@ public class BookNBT {
 				.append(createOptionText(options.getOption("TNTBomber")))
 		);
 		
-		appendPageText(pages, Text.literal("Time Settings\n\n")
+		appendPageText(pages, Text.literal("时间设置\n\n")
 				.append(createOptionText(options.getOption("borderStart")))
 				.append(createOptionText(options.getOption("borderEnd")))
 				.append(createOptionText(options.getOption("borderFinal")))
@@ -89,7 +119,7 @@ public class BookNBT {
 				.append(createOptionText(options.getOption("greenhandTime")))
 		);
 		
-		appendPageText(pages, Text.literal("World Settings\n\n")
+		appendPageText(pages, Text.literal("世界设置\n\n")
 				.append(createOptionText(options.getOption("merchantFrequency")))
 				.append(createOptionText(options.getOption("oreFrequency")))
 				.append(createOptionText(options.getOption("chestFrequency")))
@@ -97,71 +127,71 @@ public class BookNBT {
 				.append(createOptionText(options.getOption("chestItemFrequency")))
 				.append(createOptionText(options.getOption("mobCount")))
 				.append(createReturn())
-				.append(createTextEvent("     Reset Gameplay\n", "/uhc reset 0", "Reset Gameplay Settings", Formatting.GOLD))
-				.append(createTextEvent("    Reset Generation\n", "/uhc reset 1", "Reset Generation Settings", Formatting.GOLD))
-				.append(createTextEvent("       Regenerate\n", "/uhc regen", "Regenerate Terrain", Formatting.LIGHT_PURPLE))
-				.append(createTextEvent("          Start !\n", "/uhc start", "Start the UHC game !", Formatting.LIGHT_PURPLE))
+				.append(createTextEvent("     重置玩法\n", "/uhc reset 0", "重置玩法相关设置", Formatting.GOLD))
+				.append(createTextEvent("    重置生成\n", "/uhc reset 1", "重置地形生成相关设置", Formatting.GOLD))
+				.append(createTextEvent("       重新生成\n", "/uhc regen", "重新生成地形", Formatting.LIGHT_PURPLE))
+				.append(createTextEvent("         开始游戏！\n", "/uhc start", "开始本局 UHC", Formatting.LIGHT_PURPLE))
 		);
 		
-		return createWrittenBook("sbGP", "UHC Game Configuration", pages);
+		return createWrittenBook("sbGP", "UHC 游戏配置", pages, CONFIG_BOOK);
 	}
 	
 	public static ItemStack getPlayerBook(UhcGameManager gameManager) {
 		Options options = gameManager.getOptions();
 		int teamCount = options.getIntegerOptionValue("teamCount");
 		boolean randomTeams = options.getBooleanOptionValue("randomTeams");
-		MutableText text = Text.literal("Select Teams\n\n");
+		MutableText text = Text.literal("选择队伍\n\n");
 		String line = "***********************\n";
-		text.append(createTextEvent(line, "/uhc select 8", "Select to observe", Formatting.GRAY));
+		text.append(createTextEvent(line, "/uhc select 8", "点击切换为观察者", Formatting.GRAY));
 		if (randomTeams)
-			text.append(createTextEvent(line, "/uhc select 9", "Select to fight", Formatting.BLACK));
+			text.append(createTextEvent(line, "/uhc select 9", "点击加入战斗", Formatting.BLACK));
 		else {
 			switch ((UhcGameManager.EnumMode) options.getOptionValue("gameMode")) {
 				case NORMAL: {
-					text.append(createTextEvent(line, "/uhc select 9", "Select to join random team", Formatting.BLACK));
+					text.append(createTextEvent(line, "/uhc select 9", "点击加入随机队伍", Formatting.BLACK));
 					for (int i = 0; i < teamCount; i++) {
 						UhcGameColor color = UhcGameColor.getColor(i);
-						text.append(createTextEvent(line, "/uhc select " + color.getId(), "Select to join " + color.dyeColor, color.chatColor));
+						text.append(createTextEvent(line, "/uhc select " + color.getId(), "点击加入" + color.name + "队", color.chatColor));
 					}
 					break;
 				}
 				case SOLO: 
 				case GHOST:
 				case BOMBER:
-					text.append(createTextEvent(line, "/uhc select 9", "Select to fight", Formatting.BLACK));
+					text.append(createTextEvent(line, "/uhc select 9", "点击加入战斗", Formatting.BLACK));
 					break;
 				case BOSS: {
-					text.append(createTextEvent(line, "/uhc select 0", "Select to become a bully", Formatting.RED));
-					text.append(createTextEvent(line, "/uhc select 1", "Select to become a vegetable chicken", Formatting.BLUE));
+					text.append(createTextEvent(line, "/uhc select 0", "点击成为 Boss 阵营", Formatting.RED));
+					text.append(createTextEvent(line, "/uhc select 1", "点击成为挑战者阵营", Formatting.BLUE));
 					break;
 				}
 				case HUNTER:
-					text.append(createTextEvent(line, "/uhc select 0", "Select to become a prey", Formatting.RED));
-					text.append(createTextEvent(line, "/uhc select 1", "Select to become a hunter", Formatting.BLUE));
+					text.append(createTextEvent(line, "/uhc select 0", "点击成为猎物", Formatting.RED));
+					text.append(createTextEvent(line, "/uhc select 1", "点击成为猎人", Formatting.BLUE));
 					break;
 				case GHOSTHUNTER:
-					text.append(createTextEvent(line, "/uhc select 0", "Select to become a ghost", Formatting.RED));
-					text.append(createTextEvent(line, "/uhc select 1", "Select to become a hunter", Formatting.BLUE));
+					text.append(createTextEvent(line, "/uhc select 0", "点击成为幽灵", Formatting.RED));
+					text.append(createTextEvent(line, "/uhc select 1", "点击成为猎人", Formatting.BLUE));
 					break;
 			}
 		}
-		NbtList pages = new NbtList();
+		List<RawFilteredPair<Text>> pages = new ArrayList<RawFilteredPair<Text>>();
 		appendPageText(pages, text);
 		
-		return createWrittenBook("sbGP", "UHC Team Selection", pages);
+		return createWrittenBook("sbGP", "UHC 队伍选择", pages, PLAYER_BOOK);
 	}
 	
 	public static Text createPlayerText(UhcGamePlayer player) {
 		MutableText text = createTextEvent(player.getName(), null, player.getName(), player.getTeam().getTeamColor().chatColor);
 		if (player.isAlive())
-			text.append(createTextEvent(" alive\n", "/uhc adjust kill " + player.getName(), "Click to kill " + player.getName(), Formatting.DARK_GREEN));
-		else text.append(createTextEvent(" dead\n", "/uhc adjust resu " + player.getName(), "Click to resu " + player.getName(), Formatting.DARK_RED));
+			text.append(createTextEvent(" 存活\n", "/uhc adjust kill " + player.getName(), "点击判定 " + player.getName() + " 死亡", Formatting.DARK_GREEN));
+		else text.append(createTextEvent(" 死亡\n", "/uhc adjust resu " + player.getName(), "点击复活 " + player.getName(), Formatting.DARK_RED));
 		return text;
 	}
 	
 	public static ItemStack getAdjustBook(UhcGameManager gameManager) {
 		Options options = gameManager.getOptions();
-		NbtList pages = new NbtList();
+		List<RawFilteredPair<Text>> pages = new ArrayList<RawFilteredPair<Text>>();
 		
 		switch ((UhcGameManager.EnumMode) options.getOptionValue("gameMode")) {
 			case BOSS:
@@ -181,7 +211,7 @@ public class BookNBT {
 			case SOLO:
 			case GHOST:
 			case BOMBER: {
-				MutableText text = Text.literal(Formatting.LIGHT_PURPLE + "All Players\n\n");
+				MutableText text = Text.literal(Formatting.LIGHT_PURPLE + "所有玩家\n\n");
 				for (UhcGamePlayer player : gameManager.getUhcPlayerManager().getCombatPlayers()) {
 					text.append(createPlayerText(player));
 				}
@@ -189,10 +219,10 @@ public class BookNBT {
 			}
 		}
 		
-		MutableText text = Text.literal("End\n\n");
-		text.append(createTextEvent("Stop Adjusting", "/uhc adjust end", "Click to remove this book", Formatting.LIGHT_PURPLE));
+		MutableText text = Text.literal("结束\n\n");
+		text.append(createTextEvent("结束调整", "/uhc adjust end", "点击移除这本调整书", Formatting.LIGHT_PURPLE));
 		appendPageText(pages, text);
-		return createWrittenBook("sbGP", "UHC Game Adjustion", pages);
+		return createWrittenBook("sbGP", "UHC 对局调整", pages, ADJUST_BOOK);
 	}
 
 }

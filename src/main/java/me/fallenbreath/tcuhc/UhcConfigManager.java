@@ -30,7 +30,7 @@ public class UhcConfigManager
 	}
 	
 	public boolean isOperator(ServerPlayerEntity player) {
-		return operator.isSamePlayer(player);
+		return operator != null && operator.isSamePlayer(player);
 	}
 	
 	public UhcGamePlayer getOperator() {
@@ -43,10 +43,10 @@ public class UhcConfigManager
 	}
 
 	public boolean onPlayerChat(ServerPlayerEntity player, String msg) {
-		if (isConfiguring && operator.isSamePlayer(player) && isInputting) {
+		if (isConfiguring && operator != null && operator.isSamePlayer(player) && isInputting) {
 			curOption.setStringValue(msg);
 			UhcGameManager.instance.getUhcPlayerManager().refreshConfigBook();
-			player.sendMessage(Text.literal("Set " + curOption.getName() + " to " + curOption.getStringValue()), false);
+			player.sendMessage(Text.literal("已将 " + curOption.getName() + " 设置为 " + curOption.getStringValue()), false);
 			isInputting = false;
 			return false;
 		}

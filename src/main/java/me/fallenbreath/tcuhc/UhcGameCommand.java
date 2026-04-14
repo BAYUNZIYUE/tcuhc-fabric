@@ -39,6 +39,27 @@ public class UhcGameCommand
 		return source.hasPermissionLevel(2);
 	}
 
+	private static ServerPlayerEntity requirePlayer(ServerCommandSource source, String action)
+	{
+		if (source.getEntity() instanceof ServerPlayerEntity)
+		{
+			return (ServerPlayerEntity)source.getEntity();
+		}
+		source.sendFeedback(() -> Text.literal(action + " 需要在游戏内由玩家执行"), false);
+		return null;
+	}
+
+	private static UhcGamePlayer requireGamePlayer(ServerCommandSource source, ServerPlayerEntity player, String action)
+	{
+		UhcGamePlayer gamePlayer = UhcGameManager.instance.getUhcPlayerManager().getGamePlayer(player);
+		if (gamePlayer != null)
+		{
+			return gamePlayer;
+		}
+		source.sendFeedback(() -> Text.literal(action + " 暂时不可用，等待玩家数据初始化完成后再试"), false);
+		return null;
+	}
+
 	private static Stream<String> getGamePlayerNameSuggestion()
 	{
 		return UhcGameManager.instance.getUhcPlayerManager().getAllPlayers().stream().map(UhcGamePlayer::getName);
@@ -112,28 +133,46 @@ public class UhcGameCommand
 	}
 
 	private static int sendVersionInfo(ServerCommandSource sender) {
-		sender.sendFeedback(() -> Text.literal(Formatting.GOLD + "== UHC Mod for " + Formatting.RED + "T" + Formatting.BLUE + "opology" + Formatting.RED + "C" + Formatting.BLUE + "raft" + Formatting.GOLD + " =="), false);
-		sender.sendFeedback(() -> Text.literal("          " + Formatting.GREEN + "Mod Version " + Formatting.GOLD + TcUhcMod.getModVersion()), false);
-		sender.sendFeedback(() -> Text.literal("     " + Formatting.GREEN + "Minecraft Version " + Formatting.GOLD + TcUhcMod.getMinecraftVersion()), false);
+		sender.sendFeedback(() -> Text.literal(Formatting.GOLD + "== " + Formatting.RED + "T" + Formatting.BLUE + "opology" + Formatting.RED + "C" + Formatting.BLUE + "raft" + Formatting.GOLD + " UHC 模组 =="), false);
+		sender.sendFeedback(() -> Text.literal("          " + Formatting.GREEN + "模组版本 " + Formatting.GOLD + TcUhcMod.getModVersion()), false);
+		sender.sendFeedback(() -> Text.literal("        " + Formatting.GREEN + "游戏版本 " + Formatting.GOLD + TcUhcMod.getMinecraftVersion()), false);
 		return 1;
 	}
 
 	private static int selectTeam(ServerCommandSource sender, int teamId) throws CommandSyntaxException
 	{
+		ServerPlayerEntity player = requirePlayer(sender, "队伍选择");
+		if (player == null)
+		{
+			return 0;
+		}
+		UhcGamePlayer gamePlayer = requireGamePlayer(sender, player, "队伍选择");
+		if (gamePlayer == null)
+		{
+			return 0;
+		}
 		UhcGameColor color = UhcGameColor.getColor(teamId);
-		ServerPlayerEntity player = sender.getPlayer();
-		UhcGameManager.instance.getUhcPlayerManager().getGamePlayer(player).setColorSelected(color);
+		gamePlayer.setColorSelected(color);
 		UhcGameManager.instance.getUhcPlayerManager().regiveConfigItems(player);
 		return 1;
 	}
 
 	private static int sendDeathPos(ServerCommandSource sender) throws CommandSyntaxException
 	{
-		UhcGamePlayer gamePlayer = UhcGameManager.instance.getUhcPlayerManager().getGamePlayer(sender.getPlayer());
+		ServerPlayerEntity player = requirePlayer(sender, "死亡点查询");
+		if (player == null)
+		{
+			return 0;
+		}
+		UhcGamePlayer gamePlayer = requireGamePlayer(sender, player, "死亡点查询");
+		if (gamePlayer == null)
+		{
+			return 0;
+		}
 		Position deathPos = gamePlayer.getDeathPos();
 		if (deathPos == null)
 		{
-			sender.sendFeedback(() -> Text.literal("You are still alive."), false);
+			sender.sendFeedback(() -> Text.literal("你还活着。"), false);
 		}
 		else
 		{
@@ -142,7 +181,7 @@ public class UhcGameCommand
 			MutableText text = Text.literal(String.format("[%.1f, %.1f, %.1f] @ %s", pos.getX(), pos.getY(), pos.getZ(), dimId));
 			text.setStyle(
 					text.getStyle().
-					withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("Click to teleport back to your death position"))).
+					withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal("点击回到死亡地点"))).
 					withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, String.format("/execute in %s run tp %s %s %s", dimId, pos.getX(), pos.getY(), pos.getZ())))
 			);
 			sender.sendFeedback(() -> text, false);
@@ -154,7 +193,16 @@ public class UhcGameCommand
 	{
 		try
 		{
-			UhcGameManager.instance.startConfiguration(sender.getPlayer());
+			ServerPlayerEntity player = requirePlayer(sender, "配置");
+			if (player == null)
+			{
+				return 0;
+			}
+			if (requireGamePlayer(sender, player, "配置") == null)
+			{
+				return 0;
+			}
+			UhcGameManager.instance.startConfiguration(player);
 			UhcGameManager.instance.getOptions().savePropertiesFile();
 			if (!UhcGameManager.instance.isGamePlaying())
 			{
@@ -183,7 +231,7 @@ public class UhcGameCommand
 			UhcGameManager.regenerateTerrain();
 		}else {
 			regen_confirm = true;
-			UhcGameManager.instance.broadcastMessage("An operator is going to regenerate terrain,please enter /uhc regen in order to confirm. or use /uhc cancelRegen to cancel");
+			UhcGameManager.instance.broadcastMessage("有管理员准备重新生成地形，请再次输入 /uhc regen 确认，或使用 /uhc cancelRegen 取消");
 
 		}
 		return 1;
@@ -191,7 +239,7 @@ public class UhcGameCommand
 	private static int executeCancelRegen(ServerCommandSource sender)
 	{
 		regen_confirm = false;
-		UhcGameManager.instance.broadcastMessage("An operator cancelled regenerating terrain.");
+		UhcGameManager.instance.broadcastMessage("管理员已取消地形重生成。");
 
 		return 1;
 	}
@@ -200,10 +248,15 @@ public class UhcGameCommand
 	{
 		if (start_confirm)
 		{
-			UhcGameManager.instance.startGame(sender.getPlayer());
+			ServerPlayerEntity player = requirePlayer(sender, "开始游戏");
+			if (player == null)
+			{
+				return 0;
+			}
+			UhcGameManager.instance.startGame(player);
 		}else {
 			start_confirm = true;
-			UhcGameManager.instance.broadcastMessage("An operator is going to start the game,please check game config, and start again in order to confirm. or use /uhc cancelStart to cancel");
+			UhcGameManager.instance.broadcastMessage("有管理员准备开始游戏，请检查配置后再次输入 /uhc start 确认，或使用 /uhc cancelStart 取消");
 
 		}
 		return 1;
@@ -211,7 +264,7 @@ public class UhcGameCommand
 	private static int executeCancelStart(ServerCommandSource sender) throws CommandSyntaxException
 	{
 		start_confirm = false;
-		UhcGameManager.instance.broadcastMessage("An operator abort game start");
+		UhcGameManager.instance.broadcastMessage("管理员已取消开始游戏。");
 
 		return 1;
 	}
@@ -229,39 +282,51 @@ public class UhcGameCommand
 		if (optional.isPresent())
 		{
 			Option option = optional.get();
-			switch (operation)
-			{
+				switch (operation)
+				{
 
-				case "add":
-					option.incValue();
-					break;
-				case "sub":
-					option.decValue();
-					break;
-				case "set":
-					UhcGameManager.instance.getConfigManager().inputOptionValue(option);
-					sender.sendFeedback(() -> Text.literal(String.format("Input the value for %s:", option.getName())), false);
+					case "add":
+						option.incValue();
+						UhcGameManager.instance.getUhcPlayerManager().refreshConfigBook();
+						break;
+					case "sub":
+						option.decValue();
+						UhcGameManager.instance.getUhcPlayerManager().refreshConfigBook();
+						break;
+					case "set":
+						UhcGameManager.instance.getConfigManager().inputOptionValue(option);
+					sender.sendFeedback(() -> Text.literal(String.format("请输入 %s 的值：", option.getName())), false);
 					break;
 				default:
-					sender.sendFeedback(() -> Text.literal(String.format("Unknown operation %s", operation)), false);
+					sender.sendFeedback(() -> Text.literal(String.format("未知操作：%s", operation)), false);
 			}
 		}
 		else
 		{
-			sender.sendFeedback(() -> Text.literal(String.format("Unknown option %s", optionName)), false);
+			sender.sendFeedback(() -> Text.literal(String.format("未知配置项：%s", optionName)), false);
 		}
 		return 1;
 	}
 
 	private static int regiveAdjustBook(ServerCommandSource source, boolean force) throws CommandSyntaxException
 	{
-		UhcGameManager.instance.getUhcPlayerManager().regiveAdjustBook(source.getPlayer(), force);
+		ServerPlayerEntity player = requirePlayer(source, "调整书");
+		if (player == null)
+		{
+			return 0;
+		}
+		UhcGameManager.instance.getUhcPlayerManager().regiveAdjustBook(player, force);
 		return 1;
 	}
 
 	private static int removeAdjustBook(ServerCommandSource source) throws CommandSyntaxException
 	{
-		UhcGameManager.instance.getUhcPlayerManager().removeAdjustBook(source.getPlayer());
+		ServerPlayerEntity player = requirePlayer(source, "移除调整书");
+		if (player == null)
+		{
+			return 0;
+		}
+		UhcGameManager.instance.getUhcPlayerManager().removeAdjustBook(player);
 		return 1;
 	}
 
@@ -273,7 +338,7 @@ public class UhcGameCommand
 		}
 		else
 		{
-			source.sendFeedback(() -> Text.literal(Formatting.RED + "Game has not started yet"), false);
+			source.sendFeedback(() -> Text.literal(Formatting.RED + "游戏还没有开始"), false);
 			return false;
 		}
 	}
@@ -286,7 +351,7 @@ public class UhcGameCommand
 			boolean ret = UhcGameManager.instance.getUhcPlayerManager().resurrectPlayerUsingCommand(player, cleanInventory, teleportBack);
 			if (!ret)
 			{
-				source.sendFeedback(() -> Text.literal(Formatting.RED + "Player " + player + " is still alive"), false);
+				source.sendFeedback(() -> Text.literal(Formatting.RED + "玩家 " + player + " 还活着"), false);
 			}
 			regiveAdjustBook(source, false);
 		}
@@ -305,7 +370,12 @@ public class UhcGameCommand
 
 	private static int giveMorals(ServerCommandSource sender, String targetPlayerName) throws CommandSyntaxException
 	{
-		PlayerItems.dumpMoralsToPlayer(sender.getPlayer(), targetPlayerName);
+		ServerPlayerEntity player = requirePlayer(sender, "发放遗物");
+		if (player == null)
+		{
+			return 0;
+		}
+		PlayerItems.dumpMoralsToPlayer(player, targetPlayerName);
 		return 1;
 	}
 }

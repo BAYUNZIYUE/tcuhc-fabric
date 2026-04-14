@@ -92,7 +92,9 @@ public class UhcPlayerManager
 	public void onPlayerJoin(ServerPlayerEntity player) {
 		UhcGamePlayer gamePlayer = getGamePlayer(player);
 		if (gamePlayer == null)
+		{
 			allPlayerList.add(gamePlayer = new UhcGamePlayer(player));
+		}
 		if (gameManager.isGamePlaying()) {
 			if (combatPlayerList.contains(gamePlayer)) {
 				if (gamePlayer.isAlive()) {
@@ -141,21 +143,24 @@ public class UhcPlayerManager
 	}
 	
 	public void regiveAdjustBook(ServerPlayerEntity player, boolean force) {
-		Item current = player.getInventory().getMainHandStack().getItem();
+		ItemStack currentStack = player.getInventory().getMainHandStack();
 		ItemStack book = BookNBT.getAdjustBook(gameManager);
-		if (current == Items.WRITTEN_BOOK)
+		if (BookNBT.isTcUhcBook(currentStack))
 			player.getInventory().setStack(player.getInventory().selectedSlot, book);
 		else if (force) player.getInventory().insertStack(book);
 	}
 	
 	public void removeAdjustBook(ServerPlayerEntity player) {
-		Item current = player.getInventory().getMainHandStack().getItem();
-		if (current == Items.WRITTEN_BOOK)
+		ItemStack currentStack = player.getInventory().getMainHandStack();
+		if (BookNBT.isTcUhcBook(currentStack, BookNBT.ADJUST_BOOK))
 			player.getInventory().setStack(player.getInventory().selectedSlot, ItemStack.EMPTY);
 	}
 	
 	public void refreshConfigBook() {
-		gameManager.getConfigManager().getOperator().getRealPlayer().ifPresent(this::regiveConfigItems);
+		UhcGamePlayer operator = gameManager.getConfigManager().getOperator();
+		if (operator != null) {
+			operator.getRealPlayer().ifPresent(this::regiveConfigItems);
+		}
 	}
 	
 	private ItemStack getTeamItem(UhcGameColor color) {
@@ -164,7 +169,7 @@ public class UhcPlayerManager
 		int r = (rgb >> 16) & 0xFF;
 		int g = (rgb >> 8) & 0xFF;
 		int b = rgb & 0xFF;
-		stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(color.dyeColor.toString()));
+		stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(color.name + "队胸甲"));
 		return stack;
 	}
 	
@@ -222,7 +227,7 @@ public class UhcPlayerManager
 	private String chatMessage(PlayerEntity player, String msg, boolean secret) {
 		UhcGamePlayer gamePlayer = getGamePlayer(player);
 		Formatting color = gamePlayer.getTeam() == null ? Formatting.WHITE : gamePlayer.getTeam().getTeamColor().chatColor;
-		return Formatting.AQUA.toString() + "[" + Formatting.GOLD + (secret ? "To Team" : "To All") + Formatting.AQUA.toString() + "]" +
+		return Formatting.AQUA.toString() + "[" + Formatting.GOLD + (secret ? "队内" : "全体") + Formatting.AQUA.toString() + "]" +
 				color + player.getName().getString() + Formatting.YELLOW + ": " + Formatting.WHITE + msg;
 	}
 	
@@ -301,35 +306,35 @@ public class UhcPlayerManager
 	
 	public void onPlayerDamaged(ServerPlayerEntity player, DamageSource source, float amount) {
 		if (gameManager.isGamePlaying()) {
-			String msg = String.format("You got %.2f damage from ", amount);
-			String byEnding = source.getAttacker() != null ? " by " + source.getAttacker().getName().getString() : "";
-			if (source.isOf(DamageTypes.IN_FIRE)) msg += "fire";
-			else if (source.isOf(DamageTypes.LIGHTNING_BOLT)) msg += "lightning blot";
-			else if (source.isOf(DamageTypes.ON_FIRE)) msg += "fire";
-			else if (source.isOf(DamageTypes.LAVA)) msg += "lava";
-			else if (source.isOf(DamageTypes.HOT_FLOOR)) msg += "hot floor";
-			else if (source.isOf(DamageTypes.IN_WALL)) msg += "suffocating";
-			else if (source.isOf(DamageTypes.CRAMMING)) msg += "cramming";
-			else if (source.isOf(DamageTypes.DROWN)) msg += "drown";
-			else if (source.isOf(DamageTypes.STARVE)) msg += "starve";
-			else if (source.isOf(DamageTypes.CACTUS)) msg += "cactus";
-			else if (source.isOf(DamageTypes.FALL)) msg += "falling";
-			else if (source.isOf(DamageTypes.FLY_INTO_WALL)) msg += "flying into wall";
-			else if (source.isOf(DamageTypes.OUT_OF_WORLD)) msg += "out of world";
-			else if (source.isOf(DamageTypes.GENERIC)) msg += "unknown";
-			else if (source.isOf(DamageTypes.MAGIC)) msg += "magic";
-			else if (source.isOf(DamageTypes.WITHER)) msg += "wither";
-			else if (source.isOf(DamageTypes.FALLING_ANVIL)) msg += "anvil";
-			else if (source.isOf(DamageTypes.FALLING_BLOCK)) msg += "falling block";
-			else if (source.isOf(DamageTypes.DRAGON_BREATH)) msg += "dragon breath";
-			else if (source.isOf(DamageTypes.SWEET_BERRY_BUSH)) msg += "sweet berry bush";
-			else if (source.isOf(DamageTypes.EXPLOSION) || source.isOf(DamageTypes.PLAYER_EXPLOSION)) msg += "explosion" + byEnding;
+			String msg = String.format("你受到了 %.2f 点伤害，来源：", amount);
+			String byEnding = source.getAttacker() != null ? "（攻击者：" + source.getAttacker().getName().getString() + "）" : "";
+			if (source.isOf(DamageTypes.IN_FIRE)) msg += "火焰";
+			else if (source.isOf(DamageTypes.LIGHTNING_BOLT)) msg += "闪电";
+			else if (source.isOf(DamageTypes.ON_FIRE)) msg += "燃烧";
+			else if (source.isOf(DamageTypes.LAVA)) msg += "岩浆";
+			else if (source.isOf(DamageTypes.HOT_FLOOR)) msg += "炽热地面";
+			else if (source.isOf(DamageTypes.IN_WALL)) msg += "窒息";
+			else if (source.isOf(DamageTypes.CRAMMING)) msg += "挤压";
+			else if (source.isOf(DamageTypes.DROWN)) msg += "溺水";
+			else if (source.isOf(DamageTypes.STARVE)) msg += "饥饿";
+			else if (source.isOf(DamageTypes.CACTUS)) msg += "仙人掌";
+			else if (source.isOf(DamageTypes.FALL)) msg += "摔落";
+			else if (source.isOf(DamageTypes.FLY_INTO_WALL)) msg += "撞墙飞行";
+			else if (source.isOf(DamageTypes.OUT_OF_WORLD)) msg += "虚空";
+			else if (source.isOf(DamageTypes.GENERIC)) msg += "未知";
+			else if (source.isOf(DamageTypes.MAGIC)) msg += "魔法";
+			else if (source.isOf(DamageTypes.WITHER)) msg += "凋零";
+			else if (source.isOf(DamageTypes.FALLING_ANVIL)) msg += "铁砧";
+			else if (source.isOf(DamageTypes.FALLING_BLOCK)) msg += "坠落方块";
+			else if (source.isOf(DamageTypes.DRAGON_BREATH)) msg += "龙息";
+			else if (source.isOf(DamageTypes.SWEET_BERRY_BUSH)) msg += "甜浆果丛";
+			else if (source.isOf(DamageTypes.EXPLOSION) || source.isOf(DamageTypes.PLAYER_EXPLOSION)) msg += "爆炸" + byEnding;
 			else if (source.getSource() instanceof ProjectileEntity) msg += source.getSource().getName().getString() + byEnding;
 			else if (source.getAttacker() != null) msg += source.getAttacker().getName().getString();
 			else msg += source.getName() + byEnding;
 			player.sendMessage(Text.literal(Formatting.RED + msg), false);
 			if (source.getAttacker() instanceof ServerPlayerEntity) {
-				((ServerPlayerEntity)source.getAttacker()).sendMessage(Text.literal(String.format("%sYou dealt %.2f damage to %s", Formatting.BLUE, amount, player.getName().getString())), false);
+				((ServerPlayerEntity)source.getAttacker()).sendMessage(Text.literal(String.format("%s你对 %s 造成了 %.2f 点伤害", Formatting.BLUE, player.getName().getString(), amount)), false);
 			}
 		}
 	}
@@ -358,7 +363,7 @@ public class UhcPlayerManager
 					gameManager.checkWinner();
 				}
 				else this.deadPotionEffects(player.getTeam());
-				gameManager.broadcastMessage(player.getTeam().getTeamColor().chatColor + player.getName() + Formatting.WHITE + " got -1s.");
+				gameManager.broadcastMessage(player.getTeam().getTeamColor().chatColor + player.getName() + Formatting.WHITE + " 被判定为 -1s。");
 			}
 		});
 	}
@@ -411,9 +416,9 @@ public class UhcPlayerManager
 			if (player.getTeam() != null) {
 				String msg;
 				if (usingMoral) {
-					msg = " has been resurrection.";
+					msg = " 已被道德值复活。";
 				} else {
-					msg = " got +1s" + (respawnPos != null ? " and returns to its death pos." : " with inventory reserved.");
+					msg = " 获得了 +1s" + (respawnPos != null ? "，并回到了死亡地点。" : "，且保留了背包。");
 				}
 				gameManager.broadcastMessage(player.getTeam().getTeamColor().chatColor + player.getName() + Formatting.WHITE + msg);
 			}
@@ -442,7 +447,7 @@ public class UhcPlayerManager
 		for (UhcGamePlayer gamePlayer : getAllPlayers()) {
 			UhcGameColor color = gamePlayer.getColorSelected().orElse(null);
 			if (color == null) {
-				gamePlayer.getRealPlayer().ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "Please select a team to join, others are waiting for you !"), false));
+				gamePlayer.getRealPlayer().ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "请选择一个队伍加入，其他人还在等你！"), false));
 				operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + gamePlayer.getName()), false));
 				alright = false;
 			} else {
@@ -452,7 +457,7 @@ public class UhcPlayerManager
 		}
 		
 		if (!alright) {
-			operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "Some players has not made a choice."), false));
+			operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "仍有玩家尚未完成选择。"), false));
 			return false;
 		}
 		
@@ -508,7 +513,7 @@ public class UhcPlayerManager
 		for (UhcGamePlayer gamePlayer : getAllPlayers()) {
 			UhcGameColor color = gamePlayer.getColorSelected().orElse(null);
 			if (color == null) {
-				gamePlayer.getRealPlayer().ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "Please select a team to join, others are waiting for you !"), false));
+				gamePlayer.getRealPlayer().ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "请选择一个队伍加入，其他人还在等你！"), false));
 				operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + gamePlayer.getName()), false));
 				alright = false;
 			} else {
@@ -518,7 +523,7 @@ public class UhcPlayerManager
 		}
 		
 		if (!alright) {
-			operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "Some players has not made a choice."), false));
+			operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "仍有玩家尚未完成选择。"), false));
 			return false;
 		}
 		
@@ -582,13 +587,13 @@ public class UhcPlayerManager
 					if (player.getColorSelected().orElse(UhcGameColor.BLUE) == UhcGameColor.RED) {
 						if (boss == null) boss = player;
 						else if(UhcGameManager.getGameMode() == EnumMode.BOSS) {
-							player.getRealPlayer().ifPresent(playermp -> playermp.sendMessage(Text.literal(Formatting.DARK_RED + "There cannot be more than one boss."), false));
+							player.getRealPlayer().ifPresent(playermp -> playermp.sendMessage(Text.literal(Formatting.DARK_RED + "Boss 阵营不能超过一人。"), false));
 							alright = false;
 						}
 					}
 				}
 				if (!alright) {
-					operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "There are more than one boss."), false));
+					operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "当前被选择为 Boss 的玩家超过一人。"), false));
 					return false;
 				}
 				teams.add(new UhcGameTeam().setColorTeam(UhcGameColor.RED).addPlayer(boss));
@@ -612,7 +617,7 @@ public class UhcPlayerManager
 						hunterTeam.addPlayer(player);
 				}
 				if (preyTeam.getPlayerCount() == 0 || hunterTeam.getPlayerCount() == 0 ) {
-					operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "There is no prey or hunter in hunter game."), false));
+					operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "猎人模式中必须同时存在猎物和猎人。"), false));
 					return false;
 				}
 				playersPerTeam = 1;
