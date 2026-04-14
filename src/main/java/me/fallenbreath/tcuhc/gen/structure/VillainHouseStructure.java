@@ -110,6 +110,7 @@ public class VillainHouseStructure extends SinglePieceLandStructure
 					{
 						if (chestBlock.isOf(Blocks.CHEST))
 						{
+							world.toServerWorld().removeBlockEntity(chestPos);
 							world.setBlockState(chestPos, Blocks.ENDER_CHEST.getDefaultState().with(EnderChestBlock.FACING, chestBlock.get(ChestBlock.FACING)), Block.NOTIFY_ALL);
 						}
 					}
