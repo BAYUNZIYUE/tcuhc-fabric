@@ -17,9 +17,11 @@ import net.minecraft.block.entity.ChestBlockEntity;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.DyedColorComponent;
 import net.minecraft.component.type.NbtComponent;
+import net.minecraft.entity.EntityType;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.ItemEntity;
+import net.minecraft.entity.LightningEntity;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
@@ -38,6 +40,7 @@ import net.minecraft.scoreboard.ScoreHolder;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.Team;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.network.packet.s2c.play.OpenWrittenBookS2CPacket;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
@@ -264,11 +267,14 @@ public class UhcPlayerManager
 			UhcGamePlayer gamePlayer = getGamePlayer(player);
 			if (combatPlayerList.contains(gamePlayer) && gamePlayer.isAlive()) {
 				gamePlayer.setDead(gameManager.getGameTimeRemaining());
+				broadcastDeathMessage(player, cause);
+				spawnDeathLightning(player);
 				player.changeGameMode(GameMode.SPECTATOR);
 				if (gameManager.getOptions().getBooleanOptionValue("forceViewport")) {
 					gameManager.addTask(new TaskKeepSpectate(gamePlayer));
 				}
 				if (gamePlayer.getTeam().getAliveCount() == 0) {
+					broadcastTeamEliminated(gamePlayer.getTeam());
 					gameManager.checkWinner();
 				} else {
 					this.deadPotionEffects(gamePlayer.getTeam());
@@ -296,6 +302,30 @@ public class UhcPlayerManager
 		{
 			entityitem.setPickupDelay(40);
 		}
+	}
+
+	// Keep the original UHC feedback explicit even if vanilla death chat is inconsistent.
+	private void broadcastDeathMessage(ServerPlayerEntity player, DamageSource cause) {
+		gameManager.broadcastMessage(cause.getDeathMessage(player).getString());
+	}
+
+	// Use a cosmetic lightning entity so deaths remain visible without setting blocks on fire.
+	private void spawnDeathLightning(ServerPlayerEntity player) {
+		if (!(player.getWorld() instanceof ServerWorld)) {
+			return;
+		}
+		ServerWorld serverWorld = (ServerWorld) player.getWorld();
+		LightningEntity lightning = EntityType.LIGHTNING_BOLT.create(serverWorld);
+		if (lightning == null) {
+			return;
+		}
+		lightning.setCosmetic(true);
+		lightning.refreshPositionAfterTeleport(player.getX(), player.getY(), player.getZ());
+		serverWorld.spawnEntity(lightning);
+	}
+
+	private void broadcastTeamEliminated(UhcGameTeam team) {
+		gameManager.broadcastMessage(team.getColorfulTeamName() + Formatting.WHITE + " 已被淘汰。");
 	}
 	
 	private void deadPotionEffects(UhcGameTeam team) {
@@ -388,6 +418,7 @@ public class UhcPlayerManager
 				gameManager.addTask(new TaskKeepSpectate(player));
 			if (player.getTeam() != null) {
 				if (player.getTeam().getAliveCount() == 0) {
+					broadcastTeamEliminated(player.getTeam());
 					gameManager.checkWinner();
 				}
 				else this.deadPotionEffects(player.getTeam());
