@@ -8,7 +8,8 @@
     "core.LevelStorageMixin",
     "core.MinecraftServerAccessor",
     "core.MinecraftServerMixin",
-    "core.PlayerManagerMixin"
+    "core.PlayerManagerMixin",
+    "task.ServerChunkLoadingManagerAccessor"
   ],
   "client": [
   ],

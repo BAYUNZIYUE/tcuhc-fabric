@@ -5,20 +5,25 @@
 package me.fallenbreath.tcuhc.task;
 
 import com.google.common.collect.Lists;
+import me.fallenbreath.tcuhc.mixins.task.ServerChunkLoadingManagerAccessor;
 import me.fallenbreath.tcuhc.UhcGameManager;
+import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerChunkManager;
+import net.minecraft.server.world.OptionalChunk;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.ChunkStatus;
+import net.minecraft.world.chunk.WorldChunk;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Comparator;
 import java.util.Iterator;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TaskPregenerate extends Task
@@ -35,6 +40,7 @@ public class TaskPregenerate extends Task
 	private final AtomicInteger loadedChunkAmount = new AtomicInteger(0);
 	private ChunkPos loadingChunk;
 	private List<ChunkPos> loadingTickets = List.of();
+	private CompletableFuture<OptionalChunk<WorldChunk>> loadingFuture;
 
 	public TaskPregenerate(MinecraftServer mcServer, int borderSize, ServerWorld worldServer)
 	{
@@ -71,24 +77,32 @@ public class TaskPregenerate extends Task
 		{
 			return;
 		}
-		ServerChunkManager chunkManager = this.world.getChunkManager();
-		net.minecraft.world.chunk.Chunk chunk = chunkManager.getChunk(this.loadingChunk.x, this.loadingChunk.z, ChunkStatus.FULL, false);
-		if (chunk instanceof net.minecraft.world.chunk.WorldChunk)
+		if (this.loadingFuture != null)
 		{
-			this.acceptChunkResult(this.loadingChunk, (net.minecraft.world.chunk.WorldChunk) chunk);
+			return;
+		}
+		ServerChunkManager chunkManager = this.world.getChunkManager();
+		ChunkHolder holder = ((ServerChunkLoadingManagerAccessor)chunkManager.chunkLoadingManager).invokeGetChunkHolder(this.loadingChunk.toLong());
+		if (holder != null)
+		{
+			ChunkPos chunkPos = this.loadingChunk;
+			this.loadingFuture = holder.getAccessibleFuture();
+			this.loadingFuture.thenAccept(result -> this.mcServer.execute(() -> this.acceptChunkResult(chunkPos, result)));
 		}
 	}
 
-	private void acceptChunkResult(ChunkPos chunkPos, net.minecraft.world.chunk.WorldChunk result)
+	private void acceptChunkResult(ChunkPos chunkPos, OptionalChunk<WorldChunk> result)
 	{
+		if (this.loadingChunk == null || !this.loadingChunk.equals(chunkPos))
+		{
+			return;
+		}
 		List<ChunkPos> tickets = this.loadingTickets;
 		this.loadingChunk = null;
 		this.loadingTickets = List.of();
+		this.loadingFuture = null;
 		tickets.forEach(this::removeTicketAt);
-		if (result == null)
-		{
-			throw new RuntimeException("Pregenerate for chunk " + chunkPos + " failed");
-		}
+		result.orElseThrow(() -> new RuntimeException("Pregenerate for chunk " + chunkPos + " failed"));
 		this.loadedChunkAmount.incrementAndGet();
 	}
 
