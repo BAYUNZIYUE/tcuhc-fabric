@@ -2,10 +2,12 @@ package me.fallenbreath.tcuhc.gen.structure;
 
 import com.mojang.serialization.MapCodec;
 import me.fallenbreath.tcuhc.UhcGameManager;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
+import net.minecraft.block.Blocks;
 import net.minecraft.block.entity.BlockEntity;
-import net.minecraft.block.entity.ChestBlockEntity;
+import net.minecraft.block.entity.LootableContainerBlockEntity;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.SpawnReason;
@@ -44,12 +46,66 @@ import net.minecraft.world.gen.structure.StructureType;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.function.BiPredicate;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
 public abstract class SinglePieceLandStructure extends Structure
 {
+	private static final int MAX_CHEST_LOOT_RETRIES = 3;
+	private static final ConcurrentLinkedQueue<PendingLootAttachment> PENDING_LOOT_ATTACHMENTS = new ConcurrentLinkedQueue<>();
+
+	private static class PendingLootAttachment
+	{
+		private final ServerWorldAccess world;
+		private final BlockPos chestPos;
+		private final Identifier lootTableId;
+		private final long randomSeed;
+		private final int attempts;
+
+		private PendingLootAttachment(ServerWorldAccess world, BlockPos chestPos, Identifier lootTableId, long randomSeed, int attempts)
+		{
+			this.world = world;
+			this.chestPos = chestPos.toImmutable();
+			this.lootTableId = lootTableId;
+			this.randomSeed = randomSeed;
+			this.attempts = attempts;
+		}
+
+		private PendingLootAttachment retry()
+		{
+			return new PendingLootAttachment(this.world, this.chestPos, this.lootTableId, this.randomSeed, this.attempts + 1);
+		}
+	}
+
+	public static void registerLootRetryHook()
+	{
+		ServerTickEvents.END_SERVER_TICK.register(server -> flushPendingLootAttachments());
+	}
+
+	private static void flushPendingLootAttachments()
+	{
+		PendingLootAttachment pending;
+		List<PendingLootAttachment> retries = new java.util.ArrayList<>();
+		while ((pending = PENDING_LOOT_ATTACHMENTS.poll()) != null)
+		{
+			BlockEntity blockEntity = pending.world.getBlockEntity(pending.chestPos);
+			if (blockEntity instanceof LootableContainerBlockEntity)
+			{
+				((LootableContainerBlockEntity)blockEntity).setLootTable(RegistryKey.of(RegistryKeys.LOOT_TABLE, pending.lootTableId), pending.randomSeed);
+				continue;
+			}
+			if (pending.attempts >= MAX_CHEST_LOOT_RETRIES)
+			{
+				UhcGameManager.LOG.warn("Failed to attach structure loot table {} at {} after {} attempts", pending.lootTableId, pending.chestPos, pending.attempts + 1);
+				continue;
+			}
+			retries.add(pending.retry());
+		}
+		retries.forEach(PENDING_LOOT_ATTACHMENTS::add);
+	}
+
 	protected SinglePieceLandStructure(Config config)
 	{
 		super(config);
@@ -215,7 +271,8 @@ public abstract class SinglePieceLandStructure extends Structure
 
 		private static StructurePlacementData createPlacementData(BlockRotation rotation)
 		{
-			return new StructurePlacementData().setRotation(rotation).setMirror(BlockMirror.NONE).setIgnoreEntities(true);
+			// Custom templates rely on embedded entities such as end crystals, so structure placement must keep them.
+			return new StructurePlacementData().setRotation(rotation).setMirror(BlockMirror.NONE).setIgnoreEntities(false);
 		}
 
 		private void ensureStructureDataExists()
@@ -262,10 +319,28 @@ public abstract class SinglePieceLandStructure extends Structure
 		protected void setChestLoot(ServerWorldAccess world, BlockPos chestPos, Random random, Identifier lootTableId)
 		{
 			BlockEntity blockEntity = world.getBlockEntity(chestPos);
-			if (blockEntity instanceof ChestBlockEntity)
+			if (blockEntity instanceof LootableContainerBlockEntity)
 			{
-				((ChestBlockEntity)blockEntity).setLootTable(RegistryKey.of(RegistryKeys.LOOT_TABLE, lootTableId), random.nextLong());
+				((LootableContainerBlockEntity)blockEntity).setLootTable(RegistryKey.of(RegistryKeys.LOOT_TABLE, lootTableId), random.nextLong());
 			}
+			else
+			{
+				// Retry on the server thread so structure chests keep their source loot behavior even when
+				// template metadata runs slightly before the chest block entity is available.
+				PENDING_LOOT_ATTACHMENTS.add(new PendingLootAttachment(world, chestPos, lootTableId, random.nextLong(), 0));
+			}
+		}
+
+		protected void clearMetadataMarker(ServerWorldAccess world, BlockPos pos)
+		{
+			// Keep metadata marker cleanup to a single light-weight block replacement during structure placement.
+			world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_LISTENERS);
+		}
+
+		protected void clearResidualBlockEntity(ServerWorldAccess world, BlockPos pos)
+		{
+			// Some structure metadata replacements leave the marker's block entity behind after the block state changes.
+			world.toServerWorld().removeBlockEntity(pos);
 		}
 
 		protected void placeEntity(EntityType<?> entityType, BlockPos pos, ServerWorldAccess world, Random random)

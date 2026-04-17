@@ -88,7 +88,7 @@ public class HoneyWorkshopStructure extends SinglePieceLandStructure
 		{
 			if ("chest".equals(metadata))
 			{
-				world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
+				this.clearMetadataMarker(world, pos);
 				this.setChestLoot(world, pos.down(), random, CHEST_LOOT_TABLE);
 			}
 		}

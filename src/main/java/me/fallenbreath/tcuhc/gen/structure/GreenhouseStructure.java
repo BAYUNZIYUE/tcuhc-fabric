@@ -206,16 +206,17 @@ public class GreenhouseStructure extends SinglePieceLandStructure
 					dirtState = this.dirt2;
 					break;
 				case "chest":
-					world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
+					this.clearMetadataMarker(world, pos);
 					this.setChestLoot(world, pos.down(), random, CHEST_LOOT_TABLES.get(this.type));
 					return;
 			}
 			if (plantState != null && dirtState != null)
 			{
-				world.setBlockState(pos, dirtState, Block.NOTIFY_ALL);
+				// Keep greenhouse marker replacement side-effect free during structure placement.
+				world.setBlockState(pos, dirtState, Block.NOTIFY_LISTENERS);
 				if (random.nextFloat() < 0.3F)
 				{
-					world.setBlockState(pos.up(), plantState, Block.NOTIFY_ALL);
+					world.setBlockState(pos.up(), plantState, Block.NOTIFY_LISTENERS);
 				}
 			}
 		}

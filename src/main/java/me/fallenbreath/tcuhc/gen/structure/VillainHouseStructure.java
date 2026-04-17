@@ -96,24 +96,23 @@ public class VillainHouseStructure extends SinglePieceLandStructure
 			switch (metadata)
 			{
 				case "villain":
-					world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
+					this.clearMetadataMarker(world, pos);
 					for (int i = 0; i < 2; i++)
 					{
 						this.placeEntity(VILLAINS.get(random.nextInt(VILLAINS.size())), pos, world, random);
 					}
 					break;
 				case "chest":
-					world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
+					this.clearMetadataMarker(world, pos);
 					BlockPos chestPos = pos.down();
 					BlockState chestBlock = world.getBlockState(chestPos);
 					if (random.nextInt(2) == 0)
 					{
-						if (chestBlock.isOf(Blocks.CHEST))
-						{
-							world.toServerWorld().removeBlockEntity(chestPos);
-							world.setBlockState(chestPos, Blocks.ENDER_CHEST.getDefaultState().with(EnderChestBlock.FACING, chestBlock.get(ChestBlock.FACING)), Block.NOTIFY_ALL);
-						}
+					if (chestBlock.isOf(Blocks.CHEST))
+					{
+						world.setBlockState(chestPos, Blocks.ENDER_CHEST.getDefaultState().with(EnderChestBlock.FACING, chestBlock.get(ChestBlock.FACING)), Block.NOTIFY_LISTENERS);
 					}
+				}
 					else
 					{
 						this.setChestLoot(world, chestPos, random, CHEST_LOOT_TABLE);

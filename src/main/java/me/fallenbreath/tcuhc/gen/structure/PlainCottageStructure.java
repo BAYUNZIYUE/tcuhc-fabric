@@ -112,7 +112,7 @@ public class PlainCottageStructure extends SinglePieceLandStructure
 					break;
 				case "chest":
 					this.chestCounter++;
-					world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
+					this.clearMetadataMarker(world, pos);
 					if (this.chestCounter == this.bonusChestIndex)
 					{
 						this.setChestLoot(world, pos.down(), random, CHEST_LOOT_TABLE);
@@ -121,7 +121,7 @@ public class PlainCottageStructure extends SinglePieceLandStructure
 			}
 			if (entityType != null)
 			{
-				world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
+				this.clearMetadataMarker(world, pos);
 				for (int i = 0; i < amount; i++)
 				{
 					this.placeEntity(entityType, pos.down(), world, random);

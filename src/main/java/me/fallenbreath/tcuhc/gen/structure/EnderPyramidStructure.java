@@ -93,7 +93,7 @@ public class EnderPyramidStructure extends SinglePieceLandStructure
 		{
 			if ("chest".equals(metadata))
 			{
-				world.setBlockState(pos, Blocks.AIR.getDefaultState(), Block.NOTIFY_ALL);
+				this.clearMetadataMarker(world, pos);
 				this.setChestLoot(world, pos.up(), random, CHEST_LOOT_TABLE);
 			}
 		}
