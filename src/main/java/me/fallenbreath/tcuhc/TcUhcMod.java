@@ -1,9 +1,11 @@
 package me.fallenbreath.tcuhc;
 
 import me.fallenbreath.tcuhc.gen.structure.EnderPyramidStructure;
+import me.fallenbreath.tcuhc.gen.feature.UhcFeatures;
 import me.fallenbreath.tcuhc.gen.structure.GreenhouseStructure;
 import me.fallenbreath.tcuhc.gen.structure.HoneyWorkshopStructure;
 import me.fallenbreath.tcuhc.gen.structure.PlainCottageStructure;
+import me.fallenbreath.tcuhc.gen.structure.SinglePieceLandStructure;
 import me.fallenbreath.tcuhc.gen.structure.VillainHouseStructure;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
@@ -27,6 +29,8 @@ public class TcUhcMod implements ModInitializer
 		HoneyWorkshopStructure.CODEC.codec();
 		PlainCottageStructure.CODEC.codec();
 		VillainHouseStructure.CODEC.codec();
+		SinglePieceLandStructure.registerLootRetryHook();
+		UhcFeatures.register();
 	}
 
 	public static String getModId()

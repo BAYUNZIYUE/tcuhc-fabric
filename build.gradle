@@ -23,7 +23,9 @@ version = 'mc' + project.minecraft_version + '-' + project.mod_version
 group = project.maven_group
 
 def fabricApiModules = [
+        "fabric-biome-api-v1",
         "fabric-resource-loader-v0",
+        "fabric-lifecycle-events-v1",
 ]
 
 dependencies {
