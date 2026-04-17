@@ -143,7 +143,7 @@ public class UhcPlayerManager
 				player.equipStack(EquipmentSlot.CHEST, teamItem);
 			});
 			if (gameManager.getConfigManager().isOperator(player))
-				player.getInventory().insertStack(BookNBT.getConfigBook(gameManager));
+				player.getInventory().insertStack(BookNBT.getConfigBook(gameManager, gameManager.getConfigManager().getConfigBookPage()));
 			player.getInventory().insertStack(BookNBT.getPlayerBook(gameManager));
 		}
 	}
@@ -177,7 +177,7 @@ public class UhcPlayerManager
 		for (int slot = 0; slot < inventory.size(); slot++) {
 			ItemStack stack = inventory.getStack(slot);
 			if (BookNBT.isTcUhcBook(stack, BookNBT.CONFIG_BOOK)) {
-				inventory.setStack(slot, BookNBT.getConfigBook(gameManager));
+				inventory.setStack(slot, BookNBT.getConfigBook(gameManager, gameManager.getConfigManager().getConfigBookPage()));
 				hasConfigBook = true;
 			} else if (BookNBT.isTcUhcBook(stack, BookNBT.PLAYER_BOOK)) {
 				inventory.setStack(slot, BookNBT.getPlayerBook(gameManager));
@@ -185,12 +185,14 @@ public class UhcPlayerManager
 			}
 		}
 		if (!hasConfigBook && gameManager.getConfigManager().isOperator(player)) {
-			inventory.insertStack(BookNBT.getConfigBook(gameManager));
+			inventory.insertStack(BookNBT.getConfigBook(gameManager, gameManager.getConfigManager().getConfigBookPage()));
 		}
 		if (!hasPlayerBook) {
 			inventory.insertStack(BookNBT.getPlayerBook(gameManager));
 		}
 		player.playerScreenHandler.sendContentUpdates();
+		// Config books are now rendered as a single-page server-side view, so reopening is safe
+		// and ensures the player immediately sees the refreshed settings or requested section.
 		if (reopenMainHandBook) {
 			player.networkHandler.sendPacket(new OpenWrittenBookS2CPacket(Hand.MAIN_HAND));
 		}

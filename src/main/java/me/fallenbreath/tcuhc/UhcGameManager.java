@@ -41,6 +41,8 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.io.File;
+import java.io.IOException;
+import java.lang.management.ManagementFactory;
 import java.nio.file.Path;
 import java.util.Optional;
 import java.util.Random;
@@ -159,14 +161,31 @@ public class UhcGameManager extends Taskable {
 		this.displayHealth();
 		TaskScoreboard.hideScoreboard();
 		if (!preloaded) {
-			int borderStart = uhcOptions.getIntegerOptionValue("borderStart");
-			int radius = borderStart / 32;
-			this.addTask(new TaskPregenerate(mcServer, radius + 5, getOverWorld()));
-			this.addTask(new TaskPregenerate(mcServer, radius / 8 + 10, mcServer.getWorld(World.NETHER)));
+			this.startPregenerateOverworld();
 			isPregenerating = true;
 		}
 		SpawnPlatform.generatePlatform(this, getOverWorld());
 		this.addTask(new TaskHUDInfo(mcServer));
+	}
+
+	public void startPregenerateOverworld()
+	{
+		int borderStart = uhcOptions.getIntegerOptionValue("borderStart");
+		int radius = borderStart / 32;
+		this.addTask(new TaskPregenerate(mcServer, radius + 5, getOverWorld()));
+	}
+
+	public void startPregenerateNether()
+	{
+		ServerWorld nether = mcServer.getWorld(World.NETHER);
+		if (nether == null)
+		{
+			this.setPregenerateComplete();
+			return;
+		}
+		int borderStart = uhcOptions.getIntegerOptionValue("borderStart");
+		int radius = borderStart / 32;
+		this.addTask(new TaskPregenerate(mcServer, radius / 8 + 10, nether));
 	}
 	
 	public void setPregenerateComplete() {
@@ -212,11 +231,50 @@ public class UhcGameManager extends Taskable {
 	public static File getDataFile() {
 		return ((MinecraftServerAccessor)instance.mcServer).getSession().getDirectory(WorldSavePath.ROOT).resolve("uhc.json").toFile();
 	}
+
+	private static Path getServerRootPath() {
+		Path worldRoot = ((MinecraftServerAccessor)instance.mcServer).getSession().getDirectory(WorldSavePath.ROOT);
+		Path cwd = new File(".").getAbsoluteFile().toPath().normalize();
+		Path serverRoot = worldRoot.toAbsolutePath().getParent();
+		return serverRoot != null ? serverRoot : cwd;
+	}
+
+	private static Path getRegenRestartHelperPath() {
+		Path serverRootPath = getServerRootPath();
+		Path helperPath = serverRootPath.resolve("restart-server.sh");
+		if (helperPath.toFile().exists()) {
+			return helperPath;
+		}
+		Path cwdHelperPath = new File("restart-server.sh").toPath().toAbsolutePath();
+		if (cwdHelperPath.toFile().exists()) {
+			return cwdHelperPath;
+		}
+		throw new IllegalStateException("Missing regen restart helper under " + serverRootPath);
+	}
+
+	private static void launchRegenRestartHelper(Path helperPath) {
+		String runtimeName = ManagementFactory.getRuntimeMXBean().getName();
+		String pid = runtimeName.contains("@") ? runtimeName.substring(0, runtimeName.indexOf('@')) : runtimeName;
+		try {
+			LOG.info("Launching regen restart helper {} for pid {}", helperPath, pid);
+			new ProcessBuilder(helperPath.toAbsolutePath().toString(), pid).start();
+		} catch (IOException e) {
+			throw new RuntimeException("Failed to launch regen restart helper", e);
+		}
+	}
 	
 	public static void regenerateTerrain() {
+		Path helperPath = getRegenRestartHelperPath();
+		// A mod can stop the dedicated server, but restarting the JVM must be delegated to an external helper.
+		launchRegenRestartHelper(helperPath);
+		instance.cancelTasks();
+		instance.isPregenerating = false;
 		File preload = getPreloadFile();
-		if (preload.exists()) preload.delete();
-		instance.mcServer.stop(false);  // TODO: Check param
+		if (preload.exists() && !preload.delete()) {
+			throw new IllegalStateException("Failed to delete preload marker: " + preload);
+		}
+		instance.broadcastMessage("地形重生成已确认，服务器即将自动重启。请稍候重新连接。");
+		instance.mcServer.stop(false);
 	}
 	
 	public void startGame(ServerPlayerEntity operator) {
@@ -356,7 +414,7 @@ public class UhcGameManager extends Taskable {
 	
 	public void startConfiguration(ServerPlayerEntity operator) {
 		configManager.startConfiguring(playerManager.getGamePlayer(operator));
-		operator.getInventory().insertStack(BookNBT.getConfigBook(this));
+		operator.getInventory().insertStack(BookNBT.getConfigBook(this, configManager.getConfigBookPage()));
 		if (!UhcGameManager.instance.isGamePlaying()) SpawnPlatform.generateSafePlatform(getOverWorld());
 	}
 	

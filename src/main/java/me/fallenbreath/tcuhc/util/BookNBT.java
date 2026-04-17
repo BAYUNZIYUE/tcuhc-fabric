@@ -25,6 +25,8 @@ import java.util.Optional;
 
 public class BookNBT {
 	private static final String BOOK_KIND_KEY = "TcUhcBookKind";
+	private static final String CONFIG_BOOK_TITLE = "UHC 游戏配置";
+	private static final int CONFIG_BOOK_PAGE_COUNT = 7;
 
 	public static final String CONFIG_BOOK = "config";
 	public static final String PLAYER_BOOK = "player";
@@ -44,11 +46,18 @@ public class BookNBT {
 	}
 	
 	public static Text createOptionText(Optional<Option> opt) {
+		// Each option row is a self-contained control strip: decrement, current value, increment.
+		// The middle value enters chat-input mode so multi-page books do not need custom client UI.
 		return opt.map(option -> createTextEvent(option.getName(), null, option.getDescription(), Formatting.BLUE)
 				.append(createTextEvent(" < ", "/uhc option " + option.getId() + " sub", option.getDecString(), Formatting.RED))
 				.append(createTextEvent(option.getStringValue(), "/uhc option " + option.getId() + " set", "点击输入数值", Formatting.GOLD))
 				.append(createTextEvent(" >", "/uhc option " + option.getId() + " add", option.getIncString(), Formatting.GREEN))
 				.append(Text.literal("\n"))).orElse(Text.literal("未知配置项"));
+	}
+
+	public static int getConfigBookPageCount()
+	{
+		return CONFIG_BOOK_PAGE_COUNT;
 	}
 	
 	public static ItemStack createWrittenBook(String author, String title, List<RawFilteredPair<Text>> pages, String kind) {
@@ -82,58 +91,99 @@ public class BookNBT {
 		return Text.literal("\n");
 	}
 	
-	public static ItemStack getConfigBook(UhcGameManager gameManager) {
-		Options options = gameManager.getOptions();
-		List<RawFilteredPair<Text>> pages = new ArrayList<RawFilteredPair<Text>>();
-		
-		appendPageText(pages, Text.literal("基础设置\n\n")
-				.append(createOptionText(options.getOption("gameMode")))
-				.append(createOptionText(options.getOption("battleType")))
-				.append(createOptionText(options.getOption("levelType")))
-				.append(createOptionText(options.getOption("randomTeams")))
-				.append(createOptionText(options.getOption("teamCount")))
-		);
+	private static Text createConfigBookNavigation(int page)
+	{
+		MutableText navigation = Text.literal("");
+		if (page > 0)
+		{
+			navigation.append(createTextEvent("< 上一页", "/uhc configPage " + (page - 1), "查看上一组设置", Formatting.GREEN));
+		}
+		else
+		{
+			navigation.append(Text.literal("< 上一页").formatted(Formatting.DARK_GRAY));
+		}
+		navigation.append(Text.literal("   " + (page + 1) + "/" + CONFIG_BOOK_PAGE_COUNT + "   ").formatted(Formatting.GOLD));
+		if (page < CONFIG_BOOK_PAGE_COUNT - 1)
+		{
+			navigation.append(createTextEvent("下一页 >", "/uhc configPage " + (page + 1), "查看下一组设置", Formatting.GREEN));
+		}
+		else
+		{
+			navigation.append(Text.literal("下一页 >").formatted(Formatting.DARK_GRAY));
+		}
+		return navigation.append(Text.literal("\n"));
+	}
 
-		appendPageText(pages, Text.literal("游戏设置\n\n")
-				.append(createOptionText(options.getOption("difficulty")))
-				.append(createOptionText(options.getOption("weather")))
-				.append(createOptionText(options.getOption("daylightCycle")))
-				.append(createOptionText(options.getOption("friendlyFire")))
-				.append(createOptionText(options.getOption("teamCollision")))
-				.append(createOptionText(options.getOption("greenhandProtect")))
-				.append(createOptionText(options.getOption("forceViewport")))
-				.append(createOptionText(options.getOption("deathBonus")))
-				.append(createOptionText(options.getOption("TNTBomber")))
-		);
-		
-		appendPageText(pages, Text.literal("时间设置\n\n")
-				.append(createOptionText(options.getOption("borderStart")))
-				.append(createOptionText(options.getOption("borderEnd")))
-				.append(createOptionText(options.getOption("borderFinal")))
-				.append(createReturn())
-				.append(createOptionText(options.getOption("gameTime")))
-				.append(createOptionText(options.getOption("borderStartTime")))
-				.append(createOptionText(options.getOption("borderEndTime")))
-				.append(createOptionText(options.getOption("netherCloseTime")))
-				.append(createOptionText(options.getOption("caveCloseTime")))
-				.append(createOptionText(options.getOption("greenhandTime")))
-		);
-		
-		appendPageText(pages, Text.literal("世界设置\n\n")
-				.append(createOptionText(options.getOption("merchantFrequency")))
-				.append(createOptionText(options.getOption("oreFrequency")))
-				.append(createOptionText(options.getOption("chestFrequency")))
-				.append(createOptionText(options.getOption("trappedChestFrequency")))
-				.append(createOptionText(options.getOption("chestItemFrequency")))
-				.append(createOptionText(options.getOption("mobCount")))
-				.append(createReturn())
-				.append(createTextEvent("     重置玩法\n", "/uhc reset 0", "重置玩法相关设置", Formatting.GOLD))
-				.append(createTextEvent("    重置生成\n", "/uhc reset 1", "重置地形生成相关设置", Formatting.GOLD))
-				.append(createTextEvent("       重新生成\n", "/uhc regen", "重新生成地形", Formatting.LIGHT_PURPLE))
-				.append(createTextEvent("         开始游戏！\n", "/uhc start", "开始本局 UHC", Formatting.LIGHT_PURPLE))
-		);
-		
-		return createWrittenBook("sbGP", "UHC 游戏配置", pages, CONFIG_BOOK);
+	private static Text getConfigBookPage(UhcGameManager gameManager, int page)
+	{
+		Options options = gameManager.getOptions();
+		int safePage = Math.max(0, Math.min(page, CONFIG_BOOK_PAGE_COUNT - 1));
+		MutableText text;
+		switch (safePage)
+		{
+			case 0:
+				text = Text.literal("基础设置\n\n")
+						.append(createOptionText(options.getOption("gameMode")))
+						.append(createOptionText(options.getOption("battleType")))
+						.append(createOptionText(options.getOption("levelType")))
+						.append(createOptionText(options.getOption("randomTeams")))
+						.append(createOptionText(options.getOption("teamCount")));
+				break;
+			case 1:
+				text = Text.literal("游戏设置 A\n\n")
+						.append(createOptionText(options.getOption("difficulty")))
+						.append(createOptionText(options.getOption("weather")))
+						.append(createOptionText(options.getOption("daylightCycle")))
+						.append(createOptionText(options.getOption("friendlyFire")))
+						.append(createOptionText(options.getOption("teamCollision")));
+				break;
+			case 2:
+				text = Text.literal("游戏设置 B\n\n")
+						.append(createOptionText(options.getOption("greenhandProtect")))
+						.append(createOptionText(options.getOption("forceViewport")))
+						.append(createOptionText(options.getOption("deathBonus")))
+						.append(createOptionText(options.getOption("TNTBomber")));
+				break;
+			case 3:
+				text = Text.literal("时间设置 A\n\n")
+						.append(createOptionText(options.getOption("borderStart")))
+						.append(createOptionText(options.getOption("borderEnd")))
+						.append(createOptionText(options.getOption("borderFinal")))
+						.append(createOptionText(options.getOption("gameTime")))
+						.append(createOptionText(options.getOption("borderStartTime")));
+				break;
+			case 4:
+				text = Text.literal("时间设置 B\n\n")
+						.append(createOptionText(options.getOption("borderEndTime")))
+						.append(createOptionText(options.getOption("netherCloseTime")))
+						.append(createOptionText(options.getOption("caveCloseTime")))
+						.append(createOptionText(options.getOption("greenhandTime")));
+				break;
+			case 5:
+				text = Text.literal("世界设置\n\n")
+						.append(createOptionText(options.getOption("merchantFrequency")))
+						.append(createOptionText(options.getOption("oreFrequency")))
+						.append(createOptionText(options.getOption("chestFrequency")))
+						.append(createOptionText(options.getOption("trappedChestFrequency")))
+						.append(createOptionText(options.getOption("chestItemFrequency")))
+						.append(createOptionText(options.getOption("mobCount")));
+				break;
+			default:
+				text = Text.literal("操作\n\n")
+						.append(createTextEvent("     重置玩法\n", "/uhc reset 0", "重置玩法相关设置", Formatting.GOLD))
+						.append(createTextEvent("    重置生成\n", "/uhc reset 1", "重置地形生成相关设置", Formatting.GOLD))
+						.append(createTextEvent("       重新生成\n", "/uhc regen", "重新生成地形", Formatting.LIGHT_PURPLE))
+						.append(createTextEvent("         开始游戏！\n", "/uhc start", "开始本局 UHC", Formatting.LIGHT_PURPLE));
+				break;
+		}
+		// Put navigation at the top so a single-page book never hides it below the page limit.
+		return ((MutableText)createConfigBookNavigation(safePage)).append(text);
+	}
+
+	public static ItemStack getConfigBook(UhcGameManager gameManager, int page) {
+		List<RawFilteredPair<Text>> pages = new ArrayList<RawFilteredPair<Text>>();
+		appendPageText(pages, getConfigBookPage(gameManager, page));
+		return createWrittenBook("sbGP", CONFIG_BOOK_TITLE, pages, CONFIG_BOOK);
 	}
 	
 	public static ItemStack getPlayerBook(UhcGameManager gameManager) {

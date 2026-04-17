@@ -77,6 +77,12 @@ public class UhcGameCommand
 				).
 				then(literal("deathpos").executes(c -> sendDeathPos(c.getSource()))).
 				then(literal("config").requires(UhcGameCommand::isOp).executes(c -> giveConfig(c.getSource()))).
+				then(literal("configPage").
+						requires(UhcGameCommand::isOp).
+						then(argument("page", integer(0, me.fallenbreath.tcuhc.util.BookNBT.getConfigBookPageCount() - 1)).
+								executes(c -> openConfigPage(c.getSource(), getInteger(c, "page")))
+						)
+				).
 				then(literal("reset").
 						requires(UhcGameCommand::isOp).
 						then(argument("value", integer(0, 1)).
@@ -223,6 +229,22 @@ public class UhcGameCommand
 		return 1;
 	}
 
+	private static int openConfigPage(ServerCommandSource sender, int page) throws CommandSyntaxException
+	{
+		ServerPlayerEntity player = requirePlayer(sender, "配置翻页");
+		if (player == null)
+		{
+			return 0;
+		}
+		if (requireGamePlayer(sender, player, "配置翻页") == null)
+		{
+			return 0;
+		}
+		UhcGameManager.instance.getConfigManager().setConfigBookPage(page);
+		UhcGameManager.instance.getUhcPlayerManager().refreshConfigBook();
+		return 1;
+	}
+
 	private static int executeRegen(ServerCommandSource sender)
 	{
 		if (regen_confirm)
@@ -282,6 +304,7 @@ public class UhcGameCommand
 		if (optional.isPresent())
 		{
 			Option option = optional.get();
+			ServerPlayerEntity player = sender.getEntity() instanceof ServerPlayerEntity ? (ServerPlayerEntity)sender.getEntity() : null;
 				switch (operation)
 				{
 
@@ -294,9 +317,14 @@ public class UhcGameCommand
 						UhcGameManager.instance.getUhcPlayerManager().refreshConfigBook();
 						break;
 					case "set":
-						UhcGameManager.instance.getConfigManager().inputOptionValue(option);
-					sender.sendFeedback(() -> Text.literal(String.format("请输入 %s 的值：", option.getName())), false);
-					break;
+						if (player == null)
+						{
+							sender.sendFeedback(() -> Text.literal("点击数值输入需要在游戏内执行。"), false);
+							break;
+						}
+						UhcGameManager.instance.getConfigManager().inputOptionValue(player, option);
+						sender.sendFeedback(() -> Text.literal(String.format("请在聊天栏输入 %s 的值：", option.getName())), false);
+						break;
 				default:
 					sender.sendFeedback(() -> Text.literal(String.format("未知操作：%s", operation)), false);
 			}
