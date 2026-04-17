@@ -43,19 +43,25 @@ public abstract class ServerPlayerEntityMixin extends PlayerEntity
 
 	@Inject(
 			method = "onDeath",
-			at = @At(
-					value = "FIELD",
-					target = "Lnet/minecraft/stat/Stats;DEATHS:Lnet/minecraft/util/Identifier;"
-			)
+			at = @At("HEAD")
 	)
 	private void onPlayerDeath(DamageSource cause, CallbackInfo ci)
 	{
+		// Hook the method head so UHC death handling keeps working even if Mojang moves internal stat writes.
+		if (UhcGameManager.instance == null)
+		{
+			return;
+		}
 		Entity sourceEntity = cause.getSource();
 		if (!(sourceEntity instanceof PlayerEntity)) sourceEntity = cause.getAttacker();
 		if (!(sourceEntity instanceof PlayerEntity)) sourceEntity = this.getAttacker();
 		if (sourceEntity instanceof PlayerEntity)
 		{
-			UhcGameManager.instance.getUhcPlayerManager().getGamePlayer((PlayerEntity)sourceEntity).getStat().addStat(UhcGamePlayer.EnumStat.PLAYER_KILLED, 1);
+			UhcGamePlayer killer = UhcGameManager.instance.getUhcPlayerManager().getGamePlayer((PlayerEntity)sourceEntity);
+			if (killer != null)
+			{
+				killer.getStat().addStat(UhcGamePlayer.EnumStat.PLAYER_KILLED, 1);
+			}
 		}
 		// TC Plugin: Player Death Hook
 		UhcGameManager.instance.onPlayerDeath((ServerPlayerEntity) (Object) this, cause);
