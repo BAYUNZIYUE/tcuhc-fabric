@@ -30,4 +30,10 @@ public class Taskable {
 		toRemove.clear();
 	}
 
+	public void cancelTasks() {
+		tasks.forEach(Task::cancel);
+		tasks.clear();
+		toRemove.clear();
+	}
+
 }

@@ -5,31 +5,38 @@
 package me.fallenbreath.tcuhc.task;
 
 import com.google.common.collect.Lists;
+import me.fallenbreath.tcuhc.mixins.task.AbstractChunkHolderAccessor;
 import me.fallenbreath.tcuhc.mixins.task.ServerChunkLoadingManagerAccessor;
 import me.fallenbreath.tcuhc.UhcGameManager;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerChunkManager;
-import net.minecraft.server.world.OptionalChunk;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Util;
 import net.minecraft.util.math.ChunkPos;
+import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
-import net.minecraft.world.chunk.WorldChunk;
 
 import java.io.File;
 import java.io.IOException;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TaskPregenerate extends Task
 {
 	public static final ChunkTicketType<ChunkPos> PRE_GENERATE = ChunkTicketType.create("pre_generate", Comparator.comparingLong(ChunkPos::toLong));
 
+	// Real servers are more sensitive to chunk pipeline pressure than local dev runs, so keep pregeneration conservative.
+	private static final int PARALLELISM_LIMIT = 2;
+	private static final int ENQUEUE_THRESHOLD = Math.max(1, PARALLELISM_LIMIT / 2);
+	private static final int RETRY_DELAY_TICKS = 20;
+	private static final int RETRY_LOG_INTERVAL = 100;
+	private static final int MAX_RETRY_COUNT = 300;
 	private static final int TICKET_RADIUS = 1;
 
 	private long startTimeMili;
@@ -38,9 +45,24 @@ public class TaskPregenerate extends Task
 	private final MinecraftServer mcServer;
 	private final ServerWorld world;
 	private final AtomicInteger loadedChunkAmount = new AtomicInteger(0);
-	private ChunkPos loadingChunk;
-	private List<ChunkPos> loadingTickets = List.of();
-	private CompletableFuture<OptionalChunk<WorldChunk>> loadingFuture;
+	private final AtomicInteger failedChunkAmount = new AtomicInteger(0);
+	private final AtomicInteger queuedCount = new AtomicInteger(0);
+	private final Map<ChunkPos, PendingChunk> pendingChunks = new LinkedHashMap<>();
+	private boolean canceled;
+
+	private static class PendingChunk
+	{
+		private final ChunkPos chunkPos;
+		private final List<ChunkPos> tickets;
+		private int retryCount;
+		private long nextAttemptTick;
+
+		private PendingChunk(ChunkPos chunkPos, List<ChunkPos> tickets)
+		{
+			this.chunkPos = chunkPos;
+			this.tickets = tickets;
+		}
+	}
 
 	public TaskPregenerate(MinecraftServer mcServer, int borderSize, ServerWorld worldServer)
 	{
@@ -57,53 +79,104 @@ public class TaskPregenerate extends Task
 
 	private void tryGenerateChunks()
 	{
-		if (this.loadingChunk != null || !this.iterator.hasNext())
+		int count = PARALLELISM_LIMIT - this.queuedCount.get();
+		if (count <= 0)
 		{
 			return;
 		}
-		this.generateChunk(this.iterator.next());
+		List<ChunkPos> chunks = Lists.newArrayList();
+		for (int i = 0; i < count && this.iterator.hasNext(); i++)
+		{
+			chunks.add(this.iterator.next());
+		}
+		if (!chunks.isEmpty())
+		{
+			this.generateChunks(chunks);
+		}
 	}
 
-	private void generateChunk(ChunkPos chunkPos)
+	private void generateChunks(List<ChunkPos> chunks)
 	{
-		this.loadingChunk = chunkPos;
-		this.loadingTickets = createTicketArea(chunkPos);
-		this.loadingTickets.forEach(this::addTicketAt);
+		if (chunks.isEmpty())
+		{
+			return;
+		}
+		for (ChunkPos chunkPos : chunks)
+		{
+			List<ChunkPos> tickets = createTicketArea(chunkPos);
+			tickets.forEach(this::addTicketAt);
+			this.pendingChunks.put(chunkPos, new PendingChunk(chunkPos, tickets));
+			this.queuedCount.incrementAndGet();
+		}
+		this.world.getChunkManager().executeQueuedTasks();
 	}
 
-	private void pollChunkResult()
+	private void pollChunkResults()
 	{
-		if (this.loadingChunk == null)
+		if (this.pendingChunks.isEmpty())
 		{
 			return;
 		}
-		if (this.loadingFuture != null)
-		{
-			return;
-		}
+		long currentTick = this.mcServer.getTicks();
 		ServerChunkManager chunkManager = this.world.getChunkManager();
-		ChunkHolder holder = ((ServerChunkLoadingManagerAccessor)chunkManager.chunkLoadingManager).invokeGetChunkHolder(this.loadingChunk.toLong());
-		if (holder != null)
+		for (PendingChunk pendingChunk : List.copyOf(this.pendingChunks.values()))
 		{
-			ChunkPos chunkPos = this.loadingChunk;
-			this.loadingFuture = holder.getAccessibleFuture();
-			this.loadingFuture.thenAccept(result -> this.mcServer.execute(() -> this.acceptChunkResult(chunkPos, result)));
+			if (currentTick < pendingChunk.nextAttemptTick)
+			{
+				continue;
+			}
+			ChunkHolder holder = ((ServerChunkLoadingManagerAccessor)chunkManager.chunkLoadingManager).invokeGetChunkHolder(pendingChunk.chunkPos.toLong());
+			if (holder == null)
+			{
+				// Missing holders must still advance the retry path, otherwise the final pending chunk can stick forever.
+				this.acceptChunkResult(pendingChunk.chunkPos, false);
+				continue;
+			}
+			AbstractChunkHolderAccessor statusAccessor = (AbstractChunkHolderAccessor)holder;
+			Chunk chunk = statusAccessor.invokeGetUncheckedOrNull(ChunkStatus.FULL);
+			boolean ready = chunk != null && statusAccessor.invokeGetActualStatus() == ChunkStatus.FULL;
+			this.acceptChunkResult(pendingChunk.chunkPos, ready);
 		}
 	}
 
-	private void acceptChunkResult(ChunkPos chunkPos, OptionalChunk<WorldChunk> result)
+	private void acceptChunkResult(ChunkPos chunkPos, boolean success)
 	{
-		if (this.loadingChunk == null || !this.loadingChunk.equals(chunkPos))
+		PendingChunk pendingChunk = this.pendingChunks.get(chunkPos);
+		if (pendingChunk == null)
 		{
 			return;
 		}
-		List<ChunkPos> tickets = this.loadingTickets;
-		this.loadingChunk = null;
-		this.loadingTickets = List.of();
-		this.loadingFuture = null;
-		tickets.forEach(this::removeTicketAt);
-		result.orElseThrow(() -> new RuntimeException("Pregenerate for chunk " + chunkPos + " failed"));
-		this.loadedChunkAmount.incrementAndGet();
+		if (success)
+		{
+			this.pendingChunks.remove(chunkPos);
+			pendingChunk.tickets.forEach(this::removeTicketAt);
+			this.queuedCount.decrementAndGet();
+			this.loadedChunkAmount.incrementAndGet();
+		}
+		else
+		{
+			pendingChunk.retryCount++;
+			pendingChunk.nextAttemptTick = this.mcServer.getTicks() + RETRY_DELAY_TICKS;
+			if (pendingChunk.retryCount >= MAX_RETRY_COUNT)
+			{
+				this.pendingChunks.remove(chunkPos);
+				pendingChunk.tickets.forEach(this::removeTicketAt);
+				this.queuedCount.decrementAndGet();
+				this.failedChunkAmount.incrementAndGet();
+				UhcGameManager.LOG.error("Pregenerate permanently failed chunk {} in {} after {} retries", chunkPos, this.getWorldName(), pendingChunk.retryCount);
+			}
+			else
+			{
+				if (pendingChunk.retryCount % RETRY_LOG_INTERVAL == 0)
+				{
+					UhcGameManager.LOG.warn("Pregenerate still waiting on chunk {} in {} after {} retries", chunkPos, this.getWorldName(), pendingChunk.retryCount);
+				}
+			}
+		}
+		if (this.queuedCount.get() <= ENQUEUE_THRESHOLD)
+		{
+			this.tryGenerateChunks();
+		}
 	}
 
 	private void addTicketAt(ChunkPos pos)
@@ -119,33 +192,62 @@ public class TaskPregenerate extends Task
 	@Override
 	public boolean hasFinished()
 	{
-		return !this.iterator.hasNext() && this.loadingChunk == null;
+		return this.canceled || (!this.iterator.hasNext() && this.pendingChunks.isEmpty());
+	}
+
+	@Override
+	public void cancel()
+	{
+		if (this.canceled)
+		{
+			return;
+		}
+		this.canceled = true;
+		for (PendingChunk pendingChunk : this.pendingChunks.values())
+		{
+			pendingChunk.tickets.forEach(this::removeTicketAt);
+		}
+		this.pendingChunks.clear();
+		this.queuedCount.set(0);
+		this.world.getChunkManager().executeQueuedTasks();
 	}
 
 	private static String makeTime(long miliSeconds)
 	{
-		return String.format("%.2fmin", (double)miliSeconds / (1000 * 60));
+		if (miliSeconds <= 0)
+		{
+			return "0分0秒";
+		}
+		long totalSeconds = miliSeconds / 1000;
+		long minutes = totalSeconds / 60;
+		long seconds = totalSeconds % 60;
+		return String.format("%d分%d秒", minutes, seconds);
 	}
 
 	@Override
 	public void onUpdate()
 	{
+		if (this.canceled)
+		{
+			return;
+		}
 		long miliPassed = Util.getMeasuringTimeMs() - this.startTimeMili;
 		boolean log = this.mcServer.getTicks() % (20 * 5) == 0;
 		boolean say = this.mcServer.getTicks() % (20 * 30) == 0;
-		int current = this.loadedChunkAmount.get();
+		int current = this.loadedChunkAmount.get() + this.failedChunkAmount.get();
 		int total = this.chunkToLoad.size();
 		double percentage = 100.0 * current / total;
 		long milliEta = current > 0 ? miliPassed * (total - current) / current : -1;
+		int failed = this.failedChunkAmount.get();
 		if (log)
 		{
-			UhcGameManager.LOG.info(String.format("%d/%d %.2f%% 的 %s 区块已加载。", current, total, percentage, getWorldName()));
+			UhcGameManager.LOG.info(String.format("%d/%d %.2f%% 的 %s 区块已处理（失败 %d）。", current, total, percentage, getWorldName(), failed));
 		}
 		if (say)
 		{
-			UhcGameManager.instance.broadcastMessage(String.format("%s 区块生成进度：%.2f%%，预计剩余 %s", getWorldName(), percentage, makeTime(milliEta)));
+			UhcGameManager.instance.broadcastMessage(String.format("%s 区块生成进度：%.2f%%，预计剩余 %s%s", getWorldName(), percentage, makeTime(milliEta), failed > 0 ? String.format("，失败 %d", failed) : ""));
 		}
-		this.pollChunkResult();
+		this.pollChunkResults();
 		this.tryGenerateChunks();
 	}
 
@@ -160,19 +262,21 @@ public class TaskPregenerate extends Task
 	public void onFinish()
 	{
 		long miliPassed = Util.getMeasuringTimeMs() - this.startTimeMili;
-		UhcGameManager.instance.broadcastMessage(String.format("%s 预生成完成，耗时 %s", getWorldName(), makeTime(miliPassed)));
+		UhcGameManager.instance.broadcastMessage(String.format("%s 预生成完成，耗时 %s%s", getWorldName(), makeTime(miliPassed), this.failedChunkAmount.get() > 0 ? String.format("，失败 %d", this.failedChunkAmount.get()) : ""));
 		if (this.world == UhcGameManager.instance.getOverWorld())
 		{
-			try
-			{
-				File preload = UhcGameManager.getPreloadFile();
-				if (!preload.exists())
-					preload.createNewFile();
-				UhcGameManager.instance.setPregenerateComplete();
-			}
-			catch (IOException ignored)
-			{
-			}
+			UhcGameManager.instance.startPregenerateNether();
+			return;
+		}
+		try
+		{
+			File preload = UhcGameManager.getPreloadFile();
+			if (!preload.exists())
+				preload.createNewFile();
+			UhcGameManager.instance.setPregenerateComplete();
+		}
+		catch (IOException ignored)
+		{
 		}
 	}
 

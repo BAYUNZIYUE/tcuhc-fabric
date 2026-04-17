@@ -10,6 +10,7 @@ public class Task {
 	public void onUpdate() {}
 	public boolean hasFinished() { return true; }
 	public void onFinish() {}
+	public void cancel() {}
 
 	public static class TaskTimer extends Task {
 		
