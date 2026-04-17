@@ -80,6 +80,6 @@ public class RecipeArmorRepair extends SpecialCraftingRecipe
 	@Override
 	public RecipeSerializer<?> getSerializer()
 	{
-		return UhcRecipeSerializer.REPAIR_ARMOR;
+		throw new UnsupportedOperationException("Custom armor repair now runs through screen handler hooks only");
 	}
 }

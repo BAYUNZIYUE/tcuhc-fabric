@@ -4,11 +4,21 @@
   "package": "me.fallenbreath.tcuhc.mixins",
   "compatibilityLevel": "JAVA_17",
   "mixins": [
+    "block.ChestBlockEntityMixin",
+    "entity.LivingEntityMixin",
     "core.CommandManagerMixin",
     "core.LevelStorageMixin",
     "core.MinecraftServerAccessor",
     "core.MinecraftServerMixin",
     "core.PlayerManagerMixin",
+    "entity.ServerPlayerEntityMixin",
+    "entity.VillagerEntityMixin",
+    "compat.carpet.EntityPlayerMPFakeMixin",
+    "network.ServerPlayNetworkHandlerMixin",
+    "recipe.CraftingResultSlotMixin",
+    "recipe.CraftingScreenHandlerMixin",
+    "recipe.PlayerScreenHandlerMixin",
+    "task.AbstractChunkHolderAccessor",
     "task.ServerChunkLoadingManagerAccessor"
   ],
   "client": [

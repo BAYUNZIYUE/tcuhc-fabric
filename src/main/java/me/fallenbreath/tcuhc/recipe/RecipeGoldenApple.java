@@ -1,15 +1,21 @@
 package me.fallenbreath.tcuhc.recipe;
 
+import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.FoodComponent;
+import net.minecraft.component.type.NbtComponent;
+import net.minecraft.entity.effect.StatusEffectInstance;
+import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtInt;
-import net.minecraft.nbt.NbtElement;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.recipe.book.CraftingRecipeCategory;
 import net.minecraft.recipe.RecipeSerializer;
 import net.minecraft.recipe.SpecialCraftingRecipe;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.world.World;
 import net.minecraft.recipe.input.CraftingRecipeInput;
+
+import java.util.List;
 
 public class RecipeGoldenApple extends SpecialCraftingRecipe
 {
@@ -52,9 +58,38 @@ public class RecipeGoldenApple extends SpecialCraftingRecipe
 		{
 			int level = goldCnt / 2;
 			ItemStack res = new ItemStack(Items.GOLDEN_APPLE);
+			if (level != 4)
+			{
+				NbtCompound nbt = new NbtCompound();
+				nbt.putInt("level", level);
+				res.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt));
+				applyGoldenAppleEffects(res, level);
+			}
 			return res;
 		}
 		return ItemStack.EMPTY;
+	}
+
+	private static void applyGoldenAppleEffects(ItemStack stack, int level)
+	{
+		FoodComponent original = stack.get(DataComponentTypes.FOOD);
+		if (original == null)
+		{
+			return;
+		}
+
+		FoodComponent component = new FoodComponent(
+				original.nutrition(),
+				original.saturation(),
+				original.canAlwaysEat(),
+				original.eatSeconds(),
+				original.usingConvertsTo(),
+				List.of(
+						new FoodComponent.StatusEffectEntry(new StatusEffectInstance(StatusEffects.REGENERATION, (level + 1) * 20, 0), 1.0F),
+						new FoodComponent.StatusEffectEntry(new StatusEffectInstance(StatusEffects.ABSORPTION, 2400, level - 1), 1.0F)
+				)
+		);
+		stack.set(DataComponentTypes.FOOD, component);
 	}
 
 	@Override
@@ -66,6 +101,6 @@ public class RecipeGoldenApple extends SpecialCraftingRecipe
 	@Override
 	public RecipeSerializer<?> getSerializer()
 	{
-		return UhcRecipeSerializer.GOLDEN_APPLE;
+		throw new UnsupportedOperationException("Golden apple variants now use vanilla recipe json outputs only");
 	}
 }
