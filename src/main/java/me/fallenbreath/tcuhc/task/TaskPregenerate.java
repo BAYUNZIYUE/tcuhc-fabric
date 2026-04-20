@@ -14,17 +14,14 @@ import net.minecraft.server.world.ChunkTicketType;
 import net.minecraft.server.world.ServerChunkManager;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.util.Util;
+import net.minecraft.util.math.BlockPos;
 import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class TaskPregenerate extends Task
@@ -38,6 +35,8 @@ public class TaskPregenerate extends Task
 	private static final int RETRY_LOG_INTERVAL = 100;
 	private static final int MAX_RETRY_COUNT = 300;
 	private static final int TICKET_RADIUS = 1;
+
+	private static TaskPregenerate currentOverworldTask = null;
 
 	private long startTimeMili;
 	private final List<ChunkPos> chunkToLoad;
@@ -66,10 +65,39 @@ public class TaskPregenerate extends Task
 
 	public TaskPregenerate(MinecraftServer mcServer, int borderSize, ServerWorld worldServer)
 	{
+		this(mcServer, borderSize, worldServer, Collections.emptyList());
+	}
+
+	public TaskPregenerate(MinecraftServer mcServer, int borderSize, ServerWorld worldServer, List<BlockPos> priorityPositions)
+	{
 		this.mcServer = mcServer;
 		this.world = worldServer;
-		this.chunkToLoad = createChunkToLoadList(borderSize);
+		List<ChunkPos> allChunks = createChunkToLoadList(borderSize);
+		if (priorityPositions.isEmpty())
+		{
+			this.chunkToLoad = allChunks;
+		}
+		else
+		{
+			this.chunkToLoad = prioritizeSpawnChunks(allChunks, priorityPositions);
+		}
 		this.iterator = this.chunkToLoad.iterator();
+		if (worldServer == UhcGameManager.instance.getOverWorld())
+		{
+			currentOverworldTask = this;
+		}
+	}
+
+	public static TaskPregenerate reprioritizeOverworld(MinecraftServer server, int borderSize, ServerWorld overworld, List<BlockPos> spawnPositions)
+	{
+		if (currentOverworldTask != null && !currentOverworldTask.hasFinished())
+		{
+			UhcGameManager.LOG.info("Reprioritizing overworld pregeneration with {} spawn positions", spawnPositions.size());
+			currentOverworldTask.cancel();
+		}
+		TaskPregenerate newTask = new TaskPregenerate(server, borderSize, overworld, spawnPositions);
+		UhcGameManager.instance.addTask(newTask);
+		return newTask;
 	}
 
 	private String getWorldName()
@@ -210,6 +238,10 @@ public class TaskPregenerate extends Task
 		this.pendingChunks.clear();
 		this.queuedCount.set(0);
 		this.world.getChunkManager().executeQueuedTasks();
+		if (currentOverworldTask == this)
+		{
+			currentOverworldTask = null;
+		}
 	}
 
 	private static String makeTime(long miliSeconds)
@@ -261,6 +293,10 @@ public class TaskPregenerate extends Task
 	@Override
 	public void onFinish()
 	{
+		if (currentOverworldTask == this)
+		{
+			currentOverworldTask = null;
+		}
 		long miliPassed = Util.getMeasuringTimeMs() - this.startTimeMili;
 		UhcGameManager.instance.broadcastMessage(String.format("%s 预生成完成，耗时 %s%s", getWorldName(), makeTime(miliPassed), this.failedChunkAmount.get() > 0 ? String.format("，失败 %d", this.failedChunkAmount.get()) : ""));
 		if (this.world == UhcGameManager.instance.getOverWorld())
@@ -332,6 +368,47 @@ public class TaskPregenerate extends Task
 			}
 		}
 		return list;
+	}
+
+	private static List<ChunkPos> prioritizeSpawnChunks(List<ChunkPos> spiralChunks, List<BlockPos> spawnPositions)
+	{
+		Set<Long> prioritySet = new LinkedHashSet<>();
+		int spawnChunkRadius = 4;
+		for (BlockPos spawn : spawnPositions)
+		{
+			int cx = spawn.getX() >> 4;
+			int cz = spawn.getZ() >> 4;
+			for (int dx = -spawnChunkRadius; dx <= spawnChunkRadius; dx++)
+			{
+				for (int dz = -spawnChunkRadius; dz <= spawnChunkRadius; dz++)
+				{
+					prioritySet.add(ChunkPos.toLong(cx + dx, cz + dz));
+				}
+			}
+		}
+
+		Set<Long> allSet = new LinkedHashSet<>();
+		for (ChunkPos pos : spiralChunks)
+		{
+			allSet.add(pos.toLong());
+		}
+
+		List<ChunkPos> result = new ArrayList<>();
+		for (Long chunkLong : prioritySet)
+		{
+			if (allSet.contains(chunkLong))
+			{
+				result.add(new ChunkPos(chunkLong));
+			}
+		}
+		for (ChunkPos pos : spiralChunks)
+		{
+			if (!prioritySet.contains(pos.toLong()))
+			{
+				result.add(pos);
+			}
+		}
+		return result;
 	}
 
 	private static List<ChunkPos> createTicketArea(ChunkPos center)

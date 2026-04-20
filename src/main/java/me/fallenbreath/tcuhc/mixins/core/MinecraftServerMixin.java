@@ -2,7 +2,9 @@ package me.fallenbreath.tcuhc.mixins.core;
 
 import com.mojang.datafixers.util.Pair;
 import me.fallenbreath.tcuhc.UhcGameManager;
+import me.fallenbreath.tcuhc.UhcGameTeam;
 import me.fallenbreath.tcuhc.task.MsptRecorder;
+import me.fallenbreath.tcuhc.task.TaskPregenerate;
 import net.minecraft.class_1937;
 import net.minecraft.class_1959;
 import net.minecraft.class_2338;
@@ -38,6 +40,7 @@ public abstract class MinecraftServerMixin
 {
 	private UhcGameManager uhcGameManager;
 	private boolean serverInited = false;
+	private boolean wasGamePlaying = false;
 	private static boolean marineGeneratorSwapLogged = false;
 
 	@Inject(method = "<init>", at = @At("TAIL"))
@@ -381,5 +384,46 @@ public abstract class MinecraftServerMixin
 	private void tickUhcGameManager(CallbackInfo ci)
 	{
 		this.uhcGameManager.tick();
+
+		boolean isGamePlaying = this.uhcGameManager.isGamePlaying();
+		if (isGamePlaying && !this.wasGamePlaying)
+		{
+			onGameStarted();
+		}
+		this.wasGamePlaying = isGamePlaying;
+	}
+
+	private void onGameStarted()
+	{
+		if (UhcGameManager.getBattleType() != UhcGameManager.EnumBattleType.MARINE)
+		{
+			return;
+		}
+
+		int borderStart = this.uhcGameManager.getOptions().getIntegerOptionValue("borderStart");
+		int border = (int)(borderStart * 0.45);
+		java.util.List<UhcGameTeam> teams = new java.util.ArrayList<>();
+		for (UhcGameTeam team : this.uhcGameManager.getUhcPlayerManager().getTeams())
+		{
+			teams.add(team);
+		}
+		int teamCount = teams.size();
+		if (teamCount <= 0)
+		{
+			return;
+		}
+
+		java.util.List<class_2338> spawnPositions = new java.util.ArrayList<>();
+		for (int i = 0; i < teamCount; i++)
+		{
+			double angle = i * (360.0 / teamCount) * Math.PI / 180;
+			int x = (int)(border * Math.sin(angle));
+			int z = (int)(border * Math.cos(angle));
+			spawnPositions.add(new class_2338(x, 64, z));
+		}
+
+		int radius = borderStart / 32 + 5;
+		class_3218 overworld = this.uhcGameManager.getOverWorld();
+		TaskPregenerate.reprioritizeOverworld((MinecraftServer)(Object)this, radius, overworld, spawnPositions);
 	}
 }
