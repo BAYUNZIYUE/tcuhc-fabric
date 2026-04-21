@@ -34,6 +34,7 @@ public class UhcGameCommand
 	private static final String PREFIX = "uhc";
 	private static boolean regen_confirm = false;
 	private static boolean start_confirm = false;
+	private static boolean force_start_confirm = false;
 	private static boolean isOp(ServerCommandSource source)
 	{
 		return source.hasPermissionLevel(2);
@@ -83,6 +84,12 @@ public class UhcGameCommand
 								executes(c -> openConfigPage(c.getSource(), getInteger(c, "page")))
 						)
 				).
+				then(literal("configPageJump").
+						requires(UhcGameCommand::isOp).
+						then(argument("page", integer(1, me.fallenbreath.tcuhc.util.BookNBT.getConfigBookPageCount())).
+								executes(c -> openConfigPageJump(c.getSource(), getInteger(c, "page")))
+						)
+				).
 				then(literal("reset").
 						requires(UhcGameCommand::isOp).
 						then(argument("value", integer(0, 1)).
@@ -91,6 +98,7 @@ public class UhcGameCommand
 				).
 				then(literal("regen").requires(UhcGameCommand::isOp).executes(c -> executeRegen(c.getSource()))).
 				then(literal("start").requires(UhcGameCommand::isOp).executes(c -> executeStart(c.getSource()))).
+				then(literal("forceStart").requires(UhcGameCommand::isOp).executes(c -> executeForceStart(c.getSource()))).
 				then(literal("cancelStart").requires(UhcGameCommand::isOp).executes(c -> executeCancelStart(c.getSource()))).
 				then(literal("stop").requires(UhcGameCommand::isOp).executes(c -> executeStop(c.getSource()))).
 				then(literal("option").
@@ -245,6 +253,11 @@ public class UhcGameCommand
 		return 1;
 	}
 
+	private static int openConfigPageJump(ServerCommandSource sender, int page) throws CommandSyntaxException
+	{
+		return openConfigPage(sender, page - 1);
+	}
+
 	private static int executeRegen(ServerCommandSource sender)
 	{
 		if (regen_confirm)
@@ -275,7 +288,7 @@ public class UhcGameCommand
 			{
 				return 0;
 			}
-			UhcGameManager.instance.startGame(player);
+			UhcGameManager.instance.startGame(player, false);
 		}else {
 			start_confirm = true;
 			UhcGameManager.instance.broadcastMessage("有管理员准备开始游戏，请检查配置后再次输入 /uhc start 确认，或使用 /uhc cancelStart 取消");
@@ -283,9 +296,30 @@ public class UhcGameCommand
 		}
 		return 1;
 	}
+
+	private static int executeForceStart(ServerCommandSource sender) throws CommandSyntaxException
+	{
+		if (force_start_confirm)
+		{
+			ServerPlayerEntity player = requirePlayer(sender, "强制开始游戏");
+			if (player == null)
+			{
+				return 0;
+			}
+			UhcGameManager.instance.startGame(player, true);
+		}
+		else
+		{
+			force_start_confirm = true;
+			UhcGameManager.instance.broadcastMessage("有管理员准备跳过预生成直接开始游戏，请再次输入 /uhc forceStart 确认，或使用 /uhc cancelStart 取消");
+		}
+		return 1;
+	}
+
 	private static int executeCancelStart(ServerCommandSource sender) throws CommandSyntaxException
 	{
 		start_confirm = false;
+		force_start_confirm = false;
 		UhcGameManager.instance.broadcastMessage("管理员已取消开始游戏。");
 
 		return 1;

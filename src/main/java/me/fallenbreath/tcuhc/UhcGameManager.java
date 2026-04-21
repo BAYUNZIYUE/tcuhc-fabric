@@ -30,6 +30,7 @@ import net.minecraft.server.world.ServerWorld;
 
 import net.minecraft.text.Text;
 import net.minecraft.util.DyeColor;
+import net.minecraft.util.Formatting;
 import net.minecraft.util.WorldSavePath;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.Difficulty;
@@ -44,6 +45,9 @@ import java.io.File;
 import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 
@@ -277,10 +281,17 @@ public class UhcGameManager extends Taskable {
 		instance.mcServer.stop(false);
 	}
 	
-	public void startGame(ServerPlayerEntity operator) {
+	public void startGame(ServerPlayerEntity operator, boolean forceStart) {
 		if (isGamePlaying || !configManager.isConfiguring()) {
 			operator.sendMessage(Text.literal("现在还不能开始游戏。"), false);
 			return;
+		}
+		if (isPregenerating && !forceStart) {
+			operator.sendMessage(Text.literal("世界仍在预生成，使用 /uhc forceStart 可立即开始；预生成会继续在后台进行。"), false);
+			return;
+		}
+		if (isPregenerating) {
+			this.broadcastMessage("管理员已跳过预生成直接开始游戏，剩余预生成任务将继续在后台执行。");
 		}
 		boolean autoTeams = uhcOptions.getBooleanOptionValue("randomTeams");
 		if (!playerManager.formTeams(autoTeams)) return;
@@ -302,6 +313,7 @@ public class UhcGameManager extends Taskable {
 	
 	public void endGame() {
 		if (isGameEnded) return;
+		isGamePlaying = false;
 		isGameEnded = true;
 		removeWorldBorder();
 		TaskScoreboard.hideScoreboard();
@@ -321,16 +333,27 @@ public class UhcGameManager extends Taskable {
 		}
 		if (remainTeamCnt == 1)
 			this.onTeamWin(winner);
+		else if (remainTeamCnt == 0)
+			this.onNoTeamWin();
 	}
 
 	public void onTeamWin(UhcGameTeam team) {
 		TitleUtil.sendTitleToAllPlayers(team.getColorfulTeamName() + " 获胜！", "恭喜！");
 		this.broadcastMessage(team.getColorfulTeamName() + " 是本局冠军！");
-		for (UhcGamePlayer player : playerManager.getCombatPlayers()) {
-			if (player.getStat().getFloatStat(EnumStat.ALIVE_TIME) < 1)
-				player.getStat().setStat(EnumStat.ALIVE_TIME, uhcOptions.getIntegerOptionValue("gameTime") - this.getGameTimeRemaining());
-		}
+		finalizeAliveTimes();
+		this.printFinalScores(team);
+		
 		winnerList.setWinner(team.getPlayers());
+		this.endGame();
+		this.addTask(new TaskBroadcastData(160));
+	}
+
+	private void onNoTeamWin() {
+		TitleUtil.sendTitleToAllPlayers("游戏结束", "无人存活");
+		this.broadcastMessage("本局所有玩家都已出局，按最终积分结算。");
+		finalizeAliveTimes();
+		this.printFinalScores(null);
+		winnerList.setWinner(new ArrayList<UhcGamePlayer>());
 		this.endGame();
 		this.addTask(new TaskBroadcastData(160));
 	}
@@ -407,6 +430,75 @@ public class UhcGameManager extends Taskable {
 				((ServerWorld) player.getWorld()).spawnParticles(ParticleTypes.FLAME, player.getX() - dx, player.getY() + dy + player.getStandingEyeHeight() / 2, player.getZ() - dz, 1, 0, 0, 0, 0);
 			}
 		}
+	}
+	
+	private void finalizeAliveTimes() {
+		for (UhcGamePlayer player : playerManager.getCombatPlayers()) {
+			if (player.getStat().getFloatStat(EnumStat.ALIVE_TIME) < 1) {
+				player.getStat().setStat(EnumStat.ALIVE_TIME, uhcOptions.getIntegerOptionValue("gameTime") - this.getGameTimeRemaining());
+			}
+		}
+	}
+
+	private void printFinalScores(UhcGameTeam winningTeam) {
+		List<UhcGamePlayer> ranking = new ArrayList<UhcGamePlayer>();
+		for (UhcGamePlayer player : playerManager.getCombatPlayers()) {
+			ranking.add(player);
+		}
+		ranking.sort(Comparator.comparingDouble((UhcGamePlayer player) -> calculatePlayerScore(player, winningTeam)).reversed());
+
+		String title = winningTeam != null ? "===== " + winningTeam.getColorfulTeamName() + " 最终积分榜 =====" : "===== 最终积分榜 =====";
+		broadcastMessage(title);
+		int rank = 1;
+		for (UhcGamePlayer player : ranking) {
+			broadcastMessage(formatScoreLine(rank++, player, winningTeam));
+		}
+		if (winningTeam != null) {
+			broadcastMessage(winningTeam.getColorfulTeamName() + " 队伍总积分: " + String.format("%.1f", calculateTeamScore(winningTeam, winningTeam)) + "分");
+		}
+		broadcastMessage("===========================");
+	}
+
+	private float calculatePlayerScore(UhcGamePlayer player, UhcGameTeam winningTeam) {
+		float aliveTime = player.getStat().getFloatStat(UhcGamePlayer.EnumStat.ALIVE_TIME);
+		float playerKills = player.getStat().getFloatStat(UhcGamePlayer.EnumStat.PLAYER_KILLED);
+		float diamonds = player.getStat().getFloatStat(UhcGamePlayer.EnumStat.DIAMOND_FOUND);
+		float goldenApples = player.getStat().getFloatStat(UhcGamePlayer.EnumStat.GOLDEN_APPLE_EATEN);
+		float damageDealt = player.getStat().getFloatStat(UhcGamePlayer.EnumStat.DAMAGE_DEALT);
+		float teamBonus = winningTeam != null && player.getTeam() == winningTeam ? 10.0f : 0.0f;
+		return aliveTime / 20 / 60 + playerKills * 2 + diamonds + goldenApples * 0.5f + damageDealt / 100 + teamBonus;
+	}
+
+	private float calculateTeamScore(UhcGameTeam team, UhcGameTeam winningTeam) {
+		float total = 0;
+		for (UhcGamePlayer player : team.getPlayers()) {
+			total += calculatePlayerScore(player, winningTeam);
+		}
+		return total;
+	}
+
+	private String formatScoreLine(int rank, UhcGamePlayer player, UhcGameTeam winningTeam) {
+		float aliveTime = player.getStat().getFloatStat(UhcGamePlayer.EnumStat.ALIVE_TIME) / 20 / 60;
+		float playerKills = player.getStat().getFloatStat(UhcGamePlayer.EnumStat.PLAYER_KILLED);
+		float diamonds = player.getStat().getFloatStat(UhcGamePlayer.EnumStat.DIAMOND_FOUND);
+		float goldenApples = player.getStat().getFloatStat(UhcGamePlayer.EnumStat.GOLDEN_APPLE_EATEN);
+		float damageDealt = player.getStat().getFloatStat(UhcGamePlayer.EnumStat.DAMAGE_DEALT);
+		float teamBonus = winningTeam != null && player.getTeam() == winningTeam ? 10.0f : 0.0f;
+		float totalScore = calculatePlayerScore(player, winningTeam);
+		String teamName = player.getTeam() != null ? player.getTeam().getColorfulTeamName() : Formatting.GRAY + "无队伍";
+		return String.format(
+				"#%d %s [%s] 总积分 %.1f（存活 %.1f，击杀 %.0f，钻石 %.0f，金苹果 %.0f，伤害 %.1f%s）",
+				rank,
+				player.getName(),
+				teamName,
+				totalScore,
+				aliveTime,
+				playerKills,
+				diamonds,
+				goldenApples,
+				damageDealt / 100,
+				teamBonus > 0 ? String.format("，团队奖励 %.0f", teamBonus) : ""
+		);
 	}
 	
 	public void generateSpawnPlatform() { SpawnPlatform.generatePlatform(this, getOverWorld()); }

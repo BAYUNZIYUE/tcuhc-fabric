@@ -20,10 +20,11 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.Collection;
 import java.util.Map;
+import java.util.function.Supplier;
 
 public class PlayerItems
 {
-	private static final Map<String, ItemStack> items = Maps.newLinkedHashMap();
+	private static final Map<String, Supplier<ItemStack>> items = Maps.newLinkedHashMap();
 	private static final ItemStack DEFAULT_MORAL = new ItemStack(Items.PAPER);
 
 	public static Collection<String> getAvailableNames()
@@ -33,7 +34,7 @@ public class PlayerItems
 
 	public static ItemStack getPlayerItem(String playerName, boolean onFire)
 	{
-		ItemStack stack = items.getOrDefault(playerName, DEFAULT_MORAL).copy();
+		ItemStack stack = items.getOrDefault(playerName, () -> DEFAULT_MORAL.copy()).get();
 		String moralDescription = playerName + "'s moral";
 		stack.set(DataComponentTypes.CUSTOM_NAME, Text.literal(moralDescription));
 		NbtCompound nbt = new NbtCompound();
@@ -75,55 +76,65 @@ public class PlayerItems
 
 	static
 	{
-		items.put("hungryartist_", new ItemStack(Items.POTION));
-		items.put("_Flag_E_", new ItemStack(Items.POPPY));
-		items.put("Spring0809", new ItemStack(Items.TNT));
-		items.put("fire_duang_duang", new ItemStack(Items.COOKED_COD));
-		items.put("Keviince", createEnchantedItem(Items.WOODEN_SWORD, 10));
-		items.put("Dazo66", new ItemStack(Items.DANDELION));
-		items.put("Gamepiaynmo", new ItemStack(Items.COAL));
-		items.put("CCS_Covenant", new ItemStack(Items.COOKIE));
-		items.put("Lancet_Corgi", createEnchantedItem(Items.IRON_SWORD, 5));
-		items.put("ajisai_iii", new ItemStack(Items.CHICKEN));
-		items.put("Aschin", new ItemStack(Items.WHEAT));
-		items.put("Dou_Bi_Long", new ItemStack(Items.DRAGON_EGG));
-		items.put("minamotosan", new ItemStack(Items.ROTTEN_FLESH));
-		items.put("zi_nv", new ItemStack(Items.TALL_GRASS));
-		items.put("CallMeLecten", new ItemStack(Items.GLASS_BOTTLE));
-		items.put("HG_Fei", new ItemStack(Items.POTION));
-		items.put("hai_dan", new ItemStack(Items.TURTLE_EGG));
-		items.put("Fallen_Breath", new ItemStack(Items.LEATHER_CHESTPLATE));
-		items.put("Sanluli36li", new ItemStack(Items.TNT_MINECART));
-		items.put("shamreltuim", new ItemStack(Items.PUFFERFISH));
-		items.put("YtonE", new ItemStack(Items.POTION));
-		items.put("DawNemo", new ItemStack(Items.SPYGLASS));
-		items.put("Van_Nya", new ItemStack(Items.RABBIT_STEW));
-		items.put("youngdao", createEnchantedItem(Items.STONE_SWORD, 10));
-		items.put("ql_Lwi", new ItemStack(Items.COD));
-		items.put("Azulene0907", new ItemStack(Items.SPLASH_POTION));
-		items.put("LUZaLID", new ItemStack(Items.CYAN_DYE));
-		items.put("U_ruby", new ItemStack(Items.FEATHER));
-		items.put("Do1phin_jump", new ItemStack(Items.TROPICAL_FISH));
-		items.put("kuritsirolf", new ItemStack(Items.CAKE));
-		items.put("acaciachan", new ItemStack(Items.ACACIA_SAPLING));
-		items.put("Lei_Feng_", new ItemStack(Items.GUNPOWDER));
-		items.put("Ra1ny_Yuki", new ItemStack(Items.SNOW));
-		items.put("hsds", new ItemStack(Items.END_CRYSTAL));
-		items.put("ayjinyt", new ItemStack(Items.FLOWERING_AZALEA_LEAVES));
-		items.put("north_82", new ItemStack(Items.SHULKER_SHELL));
-		items.put("Runaway_Fancy", new ItemStack(Items.SPYGLASS));
-		items.put("zhihan233", new ItemStack(Items.PINK_DYE));
-		items.put("LINHUA_24k", new ItemStack(Items.GOLD_INGOT));
-		items.put("Xiang_Q1u", new ItemStack(Items.WATER_BUCKET));
-		items.put("M0n3tr", new ItemStack(Items.GLASS_BOTTLE));
-		items.put("WEIKAN", new ItemStack(Items.POWDER_SNOW_BUCKET));
-		items.put("Tou_Beichuan", new ItemStack(Items.GOLD_NUGGET));
-		items.put("kaniol", new ItemStack(Items.ELYTRA));
-		items.put("Qungrn", new ItemStack(Items.FIRE_CHARGE));
-		items.put("REMS_Eula", new ItemStack(Items.DIAMOND));
-		items.put("yue_szk", new ItemStack(Items.AMETHYST_SHARD));
-		items.put("xiao_6", new ItemStack(Items.WARPED_FUNGUS_ON_A_STICK));
-		items.put("liangxi__", new ItemStack(Items.SUGAR));
+		register("hungryartist_", Items.POTION);
+		register("_Flag_E_", Items.POPPY);
+		register("Spring0809", Items.TNT);
+		register("fire_duang_duang", Items.COOKED_COD);
+		registerEnchanted("Keviince", Items.WOODEN_SWORD, 10);
+		register("Dazo66", Items.DANDELION);
+		register("Gamepiaynmo", Items.COAL);
+		register("CCS_Covenant", Items.COOKIE);
+		registerEnchanted("Lancet_Corgi", Items.IRON_SWORD, 5);
+		register("ajisai_iii", Items.CHICKEN);
+		register("Aschin", Items.WHEAT);
+		register("Dou_Bi_Long", Items.DRAGON_EGG);
+		register("minamotosan", Items.ROTTEN_FLESH);
+		register("zi_nv", Items.TALL_GRASS);
+		register("CallMeLecten", Items.GLASS_BOTTLE);
+		register("HG_Fei", Items.POTION);
+		register("hai_dan", Items.TURTLE_EGG);
+		register("Fallen_Breath", Items.LEATHER_CHESTPLATE);
+		register("Sanluli36li", Items.TNT_MINECART);
+		register("shamreltuim", Items.PUFFERFISH);
+		register("YtonE", Items.POTION);
+		register("DawNemo", Items.SPYGLASS);
+		register("Van_Nya", Items.RABBIT_STEW);
+		registerEnchanted("youngdao", Items.STONE_SWORD, 10);
+		register("ql_Lwi", Items.COD);
+		register("Azulene0907", Items.SPLASH_POTION);
+		register("LUZaLID", Items.CYAN_DYE);
+		register("U_ruby", Items.FEATHER);
+		register("Do1phin_jump", Items.TROPICAL_FISH);
+		register("kuritsirolf", Items.CAKE);
+		register("acaciachan", Items.ACACIA_SAPLING);
+		register("Lei_Feng_", Items.GUNPOWDER);
+		register("Ra1ny_Yuki", Items.SNOW);
+		register("hsds", Items.END_CRYSTAL);
+		register("ayjinyt", Items.FLOWERING_AZALEA_LEAVES);
+		register("north_82", Items.SHULKER_SHELL);
+		register("Runaway_Fancy", Items.SPYGLASS);
+		register("zhihan233", Items.PINK_DYE);
+		register("LINHUA_24k", Items.GOLD_INGOT);
+		register("Xiang_Q1u", Items.WATER_BUCKET);
+		register("M0n3tr", Items.GLASS_BOTTLE);
+		register("WEIKAN", Items.POWDER_SNOW_BUCKET);
+		register("Tou_Beichuan", Items.GOLD_NUGGET);
+		register("kaniol", Items.ELYTRA);
+		register("Qungrn", Items.FIRE_CHARGE);
+		register("REMS_Eula", Items.DIAMOND);
+		register("yue_szk", Items.AMETHYST_SHARD);
+		register("xiao_6", Items.WARPED_FUNGUS_ON_A_STICK);
+		register("liangxi__", Items.SUGAR);
+	}
+
+	private static void register(String playerName, Item item)
+	{
+		items.put(playerName, () -> new ItemStack(item));
+	}
+
+	private static void registerEnchanted(String playerName, Item item, int level)
+	{
+		items.put(playerName, () -> createEnchantedItem(item, level));
 	}
 
 	private static ItemStack createEnchantedItem(Item item, int level)

@@ -26,7 +26,7 @@ import java.util.Optional;
 public class BookNBT {
 	private static final String BOOK_KIND_KEY = "TcUhcBookKind";
 	private static final String CONFIG_BOOK_TITLE = "UHC 游戏配置";
-	private static final int CONFIG_BOOK_PAGE_COUNT = 7;
+	private static final int CONFIG_BOOK_PAGE_COUNT = 5;
 
 	public static final String CONFIG_BOOK = "config";
 	public static final String PLAYER_BOOK = "player";
@@ -44,6 +44,14 @@ public class BookNBT {
 		if (hover != null) res = res.styled(s -> s.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hover))));
 		return res;
 	}
+
+	public static MutableText createSuggestTextEvent(String text, String cmd, String hover, Formatting color) {
+		MutableText res = Text.literal(text);
+		if (color != null) res = res.formatted(color);
+		if (cmd != null) res = res.styled(s -> s.withClickEvent(new ClickEvent(ClickEvent.Action.SUGGEST_COMMAND, cmd)));
+		if (hover != null) res = res.styled(s -> s.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, Text.literal(hover))));
+		return res;
+	}
 	
 	public static Text createOptionText(Optional<Option> opt) {
 		// Each option row is a self-contained control strip: decrement, current value, increment.
@@ -58,6 +66,11 @@ public class BookNBT {
 	public static int getConfigBookPageCount()
 	{
 		return CONFIG_BOOK_PAGE_COUNT;
+	}
+
+	private static Text createConfigBookTitle(String title)
+	{
+		return Text.literal(title + "\n").formatted(Formatting.DARK_AQUA);
 	}
 	
 	public static ItemStack createWrittenBook(String author, String title, List<RawFilteredPair<Text>> pages, String kind) {
@@ -102,7 +115,12 @@ public class BookNBT {
 		{
 			navigation.append(Text.literal("< 上一页").formatted(Formatting.DARK_GRAY));
 		}
-		navigation.append(Text.literal("   " + (page + 1) + "/" + CONFIG_BOOK_PAGE_COUNT + "   ").formatted(Formatting.GOLD));
+		navigation.append(createSuggestTextEvent(
+				"   " + (page + 1) + "/" + CONFIG_BOOK_PAGE_COUNT + "   ",
+				"/uhc configPageJump ",
+				"点击后在聊天栏输入 1-" + CONFIG_BOOK_PAGE_COUNT + " 的页码并发送",
+				Formatting.GOLD
+		));
 		if (page < CONFIG_BOOK_PAGE_COUNT - 1)
 		{
 			navigation.append(createTextEvent("下一页 >", "/uhc configPage " + (page + 1), "查看下一组设置", Formatting.GREEN));
@@ -122,7 +140,8 @@ public class BookNBT {
 		switch (safePage)
 		{
 			case 0:
-				text = Text.literal("基础设置\n\n")
+				text = Text.empty()
+						.append(createConfigBookTitle("基础设置"))
 						.append(createOptionText(options.getOption("gameMode")))
 						.append(createOptionText(options.getOption("battleType")))
 						.append(createOptionText(options.getOption("levelType")))
@@ -130,37 +149,34 @@ public class BookNBT {
 						.append(createOptionText(options.getOption("teamCount")));
 				break;
 			case 1:
-				text = Text.literal("游戏设置 A\n\n")
+				text = Text.empty()
+						.append(createConfigBookTitle("游戏设置"))
 						.append(createOptionText(options.getOption("difficulty")))
 						.append(createOptionText(options.getOption("weather")))
 						.append(createOptionText(options.getOption("daylightCycle")))
 						.append(createOptionText(options.getOption("friendlyFire")))
-						.append(createOptionText(options.getOption("teamCollision")));
-				break;
-			case 2:
-				text = Text.literal("游戏设置 B\n\n")
+						.append(createOptionText(options.getOption("teamCollision")))
 						.append(createOptionText(options.getOption("greenhandProtect")))
 						.append(createOptionText(options.getOption("forceViewport")))
 						.append(createOptionText(options.getOption("deathBonus")))
 						.append(createOptionText(options.getOption("TNTBomber")));
 				break;
-			case 3:
-				text = Text.literal("时间设置 A\n\n")
+			case 2:
+				text = Text.empty()
+						.append(createConfigBookTitle("时间设置"))
 						.append(createOptionText(options.getOption("borderStart")))
 						.append(createOptionText(options.getOption("borderEnd")))
 						.append(createOptionText(options.getOption("borderFinal")))
 						.append(createOptionText(options.getOption("gameTime")))
-						.append(createOptionText(options.getOption("borderStartTime")));
-				break;
-			case 4:
-				text = Text.literal("时间设置 B\n\n")
+						.append(createOptionText(options.getOption("borderStartTime")))
 						.append(createOptionText(options.getOption("borderEndTime")))
 						.append(createOptionText(options.getOption("netherCloseTime")))
 						.append(createOptionText(options.getOption("caveCloseTime")))
 						.append(createOptionText(options.getOption("greenhandTime")));
 				break;
-			case 5:
-				text = Text.literal("世界设置\n\n")
+			case 3:
+				text = Text.empty()
+						.append(createConfigBookTitle("世界设置"))
 						.append(createOptionText(options.getOption("merchantFrequency")))
 						.append(createOptionText(options.getOption("oreFrequency")))
 						.append(createOptionText(options.getOption("chestFrequency")))
@@ -169,10 +185,12 @@ public class BookNBT {
 						.append(createOptionText(options.getOption("mobCount")));
 				break;
 			default:
-				text = Text.literal("操作\n\n")
+				text = Text.empty()
+						.append(createConfigBookTitle("操作"))
 						.append(createTextEvent("     重置玩法\n", "/uhc reset 0", "重置玩法相关设置", Formatting.GOLD))
 						.append(createTextEvent("    重置生成\n", "/uhc reset 1", "重置地形生成相关设置", Formatting.GOLD))
 						.append(createTextEvent("       重新生成\n", "/uhc regen", "重新生成地形", Formatting.LIGHT_PURPLE))
+						.append(createTextEvent(" 强制开始（跳过预生成）\n", "/uhc forceStart", "管理员可在预生成未完成时提前开始，需二次确认", Formatting.RED))
 						.append(createTextEvent("         开始游戏！\n", "/uhc start", "开始本局 UHC", Formatting.LIGHT_PURPLE));
 				break;
 		}
