@@ -3,6 +3,8 @@ package me.fallenbreath.tcuhc.gen.feature;
 import com.mojang.serialization.Codec;
 import me.fallenbreath.tcuhc.TcUhcMod;
 import me.fallenbreath.tcuhc.UhcGameManager;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerChunkEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents;
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockState;
 import net.minecraft.block.Blocks;
@@ -27,7 +29,9 @@ import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.text.Text;
 import net.minecraft.util.BlockRotation;
 import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.random.Random;
+import net.minecraft.world.World;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.StructureWorldAccess;
 import net.minecraft.world.biome.Biome;
@@ -38,7 +42,10 @@ import net.minecraft.world.gen.feature.util.FeatureContext;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class BonusChestFeature extends Feature<DefaultFeatureConfig>
 {
@@ -46,6 +53,25 @@ public class BonusChestFeature extends Feature<DefaultFeatureConfig>
 	private static final Text EMPTY_CHEST_NAME = Text.literal("Empty Chest");
 	private static final int LOG_INTERVAL = 16;
 	private static int placedCount;
+	private static boolean flushRegistered;
+	private static final Map<Long, ConcurrentLinkedQueue<PendingPlacement>> PENDING_PLACEMENTS = new ConcurrentHashMap<>();
+	private static final ConcurrentLinkedQueue<Long> READY_CHUNKS = new ConcurrentLinkedQueue<>();
+
+	private static class PendingPlacement
+	{
+		private final BlockPos pos;
+		private final long chunkKey;
+		private final long randomSeed;
+		private final boolean empty;
+
+		private PendingPlacement(BlockPos pos, long randomSeed, boolean empty)
+		{
+			this.pos = pos.toImmutable();
+			this.chunkKey = ChunkPos.toLong(pos);
+			this.randomSeed = randomSeed;
+			this.empty = empty;
+		}
+	}
 	private static final RegistryKey<Enchantment>[] NORMAL_ENCHANTMENTS = new RegistryKey[]{
 			net.minecraft.enchantment.Enchantments.POWER,
 			net.minecraft.enchantment.Enchantments.SHARPNESS,
@@ -122,6 +148,17 @@ public class BonusChestFeature extends Feature<DefaultFeatureConfig>
 		super(codec);
 	}
 
+	public static void registerDeferredPlacementHook()
+	{
+		if (flushRegistered)
+		{
+			return;
+		}
+		flushRegistered = true;
+		ServerChunkEvents.CHUNK_LOAD.register((world, chunk) -> markChunkReady(world, chunk.getPos().toLong()));
+		ServerTickEvents.END_SERVER_TICK.register(server -> flushReadyChunks(server));
+	}
+
 	@Override
 	public boolean generate(FeatureContext<DefaultFeatureConfig> context)
 	{
@@ -166,27 +203,78 @@ public class BonusChestFeature extends Feature<DefaultFeatureConfig>
 		}
 
 		boolean empty = random.nextDouble() < emptyChestChance;
+		PendingPlacement pending = new PendingPlacement(pos, random.nextLong(), empty);
+		PENDING_PLACEMENTS.computeIfAbsent(pending.chunkKey, ignored -> new ConcurrentLinkedQueue<>()).add(pending);
+		return true;
+	}
+
+	private static void markChunkReady(net.minecraft.server.world.ServerWorld world, long chunkKey)
+	{
+		if (world.getRegistryKey() != World.OVERWORLD)
+		{
+			return;
+		}
+		READY_CHUNKS.add(chunkKey);
+	}
+
+	private static void flushReadyChunks(net.minecraft.server.MinecraftServer server)
+	{
+		net.minecraft.server.world.ServerWorld world = server.getWorld(World.OVERWORLD);
+		if (world == null)
+		{
+			return;
+		}
+		Long chunkKey;
+		while ((chunkKey = READY_CHUNKS.poll()) != null)
+		{
+			flushPendingPlacements(world, chunkKey);
+		}
+	}
+
+	private static void flushPendingPlacements(net.minecraft.server.world.ServerWorld world, long chunkKey)
+	{
+		ConcurrentLinkedQueue<PendingPlacement> placements = PENDING_PLACEMENTS.remove(chunkKey);
+		if (placements == null)
+		{
+			return;
+		}
+		PendingPlacement pending;
+		while ((pending = placements.poll()) != null)
+		{
+			if (!placeChest(world, pending))
+			{
+				UhcGameManager.LOG.warn("Bonus chest deferred placement skipped at {} after chunk load", pending.pos);
+			}
+		}
+	}
+
+	private static boolean placeChest(net.minecraft.server.world.ServerWorld world, PendingPlacement pending)
+	{
+		BlockPos pos = pending.pos;
+		Random random = Random.create(pending.randomSeed);
+		BlockState currentState = world.getBlockState(pos);
 		boolean waterlogged = world.getFluidState(pos).isStill();
-		BlockState chestState = (empty ? Blocks.TRAPPED_CHEST : Blocks.CHEST)
+		BlockState chestState = (pending.empty ? Blocks.TRAPPED_CHEST : Blocks.CHEST)
 				.getDefaultState()
 				.rotate(BlockRotation.random(random))
 				.with(ChestBlock.WATERLOGGED, waterlogged);
-		if (!world.setBlockState(pos, chestState, 3))
+		if (!world.setBlockState(pos, chestState, Block.NOTIFY_LISTENERS))
 		{
 			return false;
 		}
 		if (world.getBlockState(pos.up()).isOf(Blocks.SNOW))
 		{
-			world.setBlockState(pos.up(), Blocks.AIR.getDefaultState(), 3);
+			world.setBlockState(pos.up(), Blocks.AIR.getDefaultState(), Block.NOTIFY_LISTENERS);
 		}
 
 		BlockEntity blockEntity = world.getBlockEntity(pos);
 		if (!(blockEntity instanceof ChestBlockEntity))
 		{
+			world.setBlockState(pos, currentState, Block.NOTIFY_LISTENERS);
 			return false;
 		}
 		ChestBlockEntity chest = (ChestBlockEntity)blockEntity;
-		if (empty)
+		if (pending.empty)
 		{
 			fillChestItems(chest, buildEmptyItems(), random, false);
 		}

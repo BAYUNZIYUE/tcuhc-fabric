@@ -1,6 +1,7 @@
 package me.fallenbreath.tcuhc;
 
 import me.fallenbreath.tcuhc.gen.structure.EnderPyramidStructure;
+import me.fallenbreath.tcuhc.gen.feature.BonusChestFeature;
 import me.fallenbreath.tcuhc.gen.feature.UhcFeatures;
 import me.fallenbreath.tcuhc.gen.structure.GreenhouseStructure;
 import me.fallenbreath.tcuhc.gen.structure.HoneyWorkshopStructure;
@@ -30,6 +31,7 @@ public class TcUhcMod implements ModInitializer
 		PlainCottageStructure.CODEC.codec();
 		VillainHouseStructure.CODEC.codec();
 		SinglePieceLandStructure.registerLootRetryHook();
+		BonusChestFeature.registerDeferredPlacementHook();
 		UhcFeatures.register();
 	}
 
