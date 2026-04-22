@@ -115,9 +115,9 @@ public class BookNBT {
 		{
 			navigation.append(Text.literal("< 上一页").formatted(Formatting.DARK_GRAY));
 		}
-		navigation.append(createSuggestTextEvent(
+		navigation.append(createTextEvent(
 				"   " + (page + 1) + "/" + CONFIG_BOOK_PAGE_COUNT + "   ",
-				"/uhc configPageJump ",
+				"/uhc configPagePrompt",
 				"点击后在聊天栏输入 1-" + CONFIG_BOOK_PAGE_COUNT + " 的页码并发送",
 				Formatting.GOLD
 		));

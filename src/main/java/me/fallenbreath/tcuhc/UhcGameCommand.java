@@ -46,6 +46,11 @@ public class UhcGameCommand
 		{
 			return (ServerPlayerEntity)source.getEntity();
 		}
+		java.util.List<ServerPlayerEntity> players = source.getServer().getPlayerManager().getPlayerList();
+		if (!players.isEmpty())
+		{
+			return players.get(0);
+		}
 		source.sendFeedback(() -> Text.literal(action + " 需要在游戏内由玩家执行"), false);
 		return null;
 	}
@@ -89,6 +94,10 @@ public class UhcGameCommand
 						then(argument("page", integer(1, me.fallenbreath.tcuhc.util.BookNBT.getConfigBookPageCount())).
 								executes(c -> openConfigPageJump(c.getSource(), getInteger(c, "page")))
 						)
+				).
+				then(literal("configPagePrompt").
+						requires(UhcGameCommand::isOp).
+						executes(c -> promptConfigPageJump(c.getSource()))
 				).
 				then(literal("reset").
 						requires(UhcGameCommand::isOp).
@@ -256,6 +265,21 @@ public class UhcGameCommand
 	private static int openConfigPageJump(ServerCommandSource sender, int page) throws CommandSyntaxException
 	{
 		return openConfigPage(sender, page - 1);
+	}
+
+	private static int promptConfigPageJump(ServerCommandSource sender) throws CommandSyntaxException
+	{
+		ServerPlayerEntity player = requirePlayer(sender, "配置页跳转");
+		if (player == null)
+		{
+			return 0;
+		}
+		if (requireGamePlayer(sender, player, "配置页跳转") == null)
+		{
+			return 0;
+		}
+		UhcGameManager.instance.getConfigManager().inputConfigBookPage(player);
+		return 1;
 	}
 
 	private static int executeRegen(ServerCommandSource sender)

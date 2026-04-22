@@ -18,6 +18,7 @@ public class UhcConfigManager
 	private UhcGamePlayer operator;
 	private boolean isConfiguring;
 	private boolean isInputting;
+	private boolean isInputtingPage;
 	private Option curOption;
 	private int configBookPage = FIRST_CONFIG_BOOK_PAGE;
 	private UUID inputPlayerUuid;
@@ -26,6 +27,7 @@ public class UhcConfigManager
 		operator = op;
 		isConfiguring = true;
 		isInputting = false;
+		isInputtingPage = false;
 		curOption = null;
 		configBookPage = FIRST_CONFIG_BOOK_PAGE;
 		inputPlayerUuid = null;
@@ -34,6 +36,7 @@ public class UhcConfigManager
 	public void stopConfiguring() {
 		isConfiguring = false;
 		isInputting = false;
+		isInputtingPage = false;
 		curOption = null;
 		inputPlayerUuid = null;
 	}
@@ -61,12 +64,39 @@ public class UhcConfigManager
 	}
 	
 	public void inputOptionValue(ServerPlayerEntity player, Option option) {
+		isInputtingPage = false;
 		isInputting = true;
 		curOption = option;
 		inputPlayerUuid = player.getUuid();
 	}
 
+	public void inputConfigBookPage(ServerPlayerEntity player)
+	{
+		isInputting = false;
+		curOption = null;
+		isInputtingPage = true;
+		inputPlayerUuid = player.getUuid();
+		player.sendMessage(Text.literal("请在聊天栏输入 1-" + me.fallenbreath.tcuhc.util.BookNBT.getConfigBookPageCount() + " 的页码并发送。"), false);
+	}
+
 	public boolean onPlayerChat(ServerPlayerEntity player, String msg) {
+		if (isConfiguring && isInputtingPage && inputPlayerUuid != null && inputPlayerUuid.equals(player.getUuid())) {
+			String rawValue = msg == null ? "" : msg.trim();
+			try {
+				int page = Integer.parseInt(rawValue);
+				if (page < 1 || page > me.fallenbreath.tcuhc.util.BookNBT.getConfigBookPageCount()) {
+					throw new NumberFormatException();
+				}
+				setConfigBookPage(page - 1);
+				UhcGameManager.instance.getUhcPlayerManager().refreshConfigBook();
+				player.sendMessage(Text.literal("已跳转到配置书第 " + page + " 页。"), false);
+				isInputtingPage = false;
+				inputPlayerUuid = null;
+			} catch (RuntimeException e) {
+				player.sendMessage(Text.literal("请输入 1-" + me.fallenbreath.tcuhc.util.BookNBT.getConfigBookPageCount() + " 的有效页码。"), false);
+			}
+			return false;
+		}
 		if (isConfiguring && isInputting && inputPlayerUuid != null && inputPlayerUuid.equals(player.getUuid())) {
 			String rawValue = msg == null ? "" : msg.trim();
 			if (rawValue.isEmpty()) {
@@ -78,6 +108,7 @@ public class UhcConfigManager
 				UhcGameManager.instance.getUhcPlayerManager().refreshConfigBook();
 				player.sendMessage(Text.literal("已将 " + curOption.getName() + " 设置为 " + curOption.getStringValue()), false);
 				isInputting = false;
+				isInputtingPage = false;
 				inputPlayerUuid = null;
 			} catch (RuntimeException e) {
 				// Keep the input session alive so the player can immediately retry from chat.
