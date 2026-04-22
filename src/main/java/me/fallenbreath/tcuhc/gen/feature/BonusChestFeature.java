@@ -311,7 +311,7 @@ public class BonusChestFeature extends Feature<DefaultFeatureConfig>
 	{
 		List<RandomItem> items = new ArrayList<>();
 		items.add(new RandomItem(1, random -> new ItemStack(Items.STICK)));
-		items.add(new RandomItem(1, random -> new ItemStack(Items.BONE)));
+		items.add(new RandomItem(1, random -> new ItemStack(Items.BONE, 2)));
 		items.add(new RandomItem(2, random -> new ItemStack(Items.STRING)));
 		items.add(new RandomItem(2, random -> new ItemStack(Items.IRON_INGOT, random.nextInt(2) + 1)));
 		items.add(new RandomItem(3, random -> new ItemStack(Items.GOLD_INGOT)));
@@ -321,6 +321,7 @@ public class BonusChestFeature extends Feature<DefaultFeatureConfig>
 		if (UhcGameManager.getBattleType() == UhcGameManager.EnumBattleType.MARINE)
 		{
 			items.add(new RandomItem(5, random -> new ItemStack(Items.OAK_LOG)));
+			items.add(new RandomItem(2, random -> new ItemStack(Items.OAK_SAPLING)));
 		}
 		else if (UhcGameManager.getBattleType() == UhcGameManager.EnumBattleType.ICARUS)
 		{

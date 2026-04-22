@@ -174,8 +174,19 @@ public class MerchantsFeature extends Feature<DefaultFeatureConfig>
 		{
 			offers.add(recipe.create(random));
 		}
+		if (UhcGameManager.getBattleType() == UhcGameManager.EnumBattleType.MARINE)
+		{
+			offers.add(createMarineQuartzTrade(Items.HEART_OF_THE_SEA, 1, random.nextBoolean() ? 48 : 64));
+			offers.add(createMarineQuartzTrade(Items.PRISMARINE_CRYSTALS, random.nextInt(3) + 1, 1));
+			offers.add(createMarineQuartzTrade(Items.PRISMARINE_SHARD, random.nextInt(5) + 2, 1));
+		}
 		villager.setOffers(offers);
 		return villager;
+	}
+
+	private static TradeOffer createMarineQuartzTrade(Item item, int count, int quartzCount)
+	{
+		return new TradeOffer(new TradedItem(item, count), new ItemStack(Items.QUARTZ, quartzCount), 10000, 0, 1.0F);
 	}
 
 	private static class UhcRecipe
