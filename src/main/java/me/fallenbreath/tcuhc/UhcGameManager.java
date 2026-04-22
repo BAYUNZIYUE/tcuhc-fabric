@@ -92,6 +92,16 @@ public class UhcGameManager extends Taskable {
 	public Options getOptions() { return uhcOptions; }
 	public boolean isGamePlaying() { return isGamePlaying; }
 	public boolean isConfiguring() { return configManager.isConfiguring(); }
+	private Optional<String> getCannotStartReason(boolean forceStart)
+	{
+		if (isGamePlaying) {
+			return Optional.of("当前游戏已经开始，无法再次开始。若需结束当前对局，请先执行停止流程。");
+		}
+		if (isPregenerating && !forceStart) {
+			return Optional.of("世界仍在预生成，使用 /uhc forceStart 可立即开始；预生成会继续在后台进行。");
+		}
+		return Optional.empty();
+	}
 	public boolean hasGameEnded() { return isGameEnded; }
 	public static EnumBattleType getBattleType() { return (EnumBattleType)instance.getOptions().getOptionValue("battleType"); }
 	public static EnumLevelType getLevelType() { return (EnumLevelType)instance.getOptions().getOptionValue("levelType"); }
@@ -282,19 +292,58 @@ public class UhcGameManager extends Taskable {
 	}
 	
 	public void startGame(ServerPlayerEntity operator, boolean forceStart) {
-		if (isGamePlaying || !configManager.isConfiguring()) {
+		Optional<String> cannotStartReason = getCannotStartReason(forceStart);
+		if (cannotStartReason.isPresent()) {
 			operator.sendMessage(Text.literal("现在还不能开始游戏。"), false);
-			return;
-		}
-		if (isPregenerating && !forceStart) {
-			operator.sendMessage(Text.literal("世界仍在预生成，使用 /uhc forceStart 可立即开始；预生成会继续在后台进行。"), false);
+			operator.sendMessage(Text.literal(cannotStartReason.get()), false);
 			return;
 		}
 		if (isPregenerating) {
 			this.broadcastMessage("管理员已跳过预生成直接开始游戏，剩余预生成任务将继续在后台执行。");
 		}
+
+		if (!configManager.isConfiguring()) {
+			startConfiguration(operator);
+		}
+
 		boolean autoTeams = uhcOptions.getBooleanOptionValue("randomTeams");
-		if (!playerManager.formTeams(autoTeams)) return;
+		playerManager.refreshOnlinePlayers();
+
+		java.util.List<UhcGamePlayer> allPlayers = new java.util.ArrayList<>(playerManager.getAllPlayers());
+		java.util.List<UhcGamePlayer> unselected = new java.util.ArrayList<>();
+		for (UhcGamePlayer gamePlayer : allPlayers) {
+			if (!gamePlayer.getColorSelected().isPresent()) {
+				unselected.add(gamePlayer);
+			}
+		}
+
+		if (allPlayers.isEmpty() || unselected.size() == allPlayers.size()) {
+			this.broadcastMessage(Formatting.RED + "游戏未配置 /uhc config");
+			this.broadcastMessage(Formatting.RED + "请先进行游戏身份选择或者重新配置生成");
+			TitleUtil.sendTitleToPlayer(Formatting.RED + "游戏未配置", "请先进行游戏身份选择或者重新配置生成", operator);
+			return;
+		}
+
+		if (!unselected.isEmpty()) {
+			for (UhcGamePlayer gamePlayer : unselected) {
+				this.broadcastMessage(Formatting.YELLOW + "@ " + gamePlayer.getName() + " 请速速选择队伍！");
+				gamePlayer.getRealPlayer().ifPresent(player ->
+					TitleUtil.sendTitleToPlayer(Formatting.RED + "请选择队伍", "点击彩色皮甲完成选择", player)
+				);
+			}
+			TitleUtil.sendTitleToPlayer(Formatting.RED + "有玩家未选队", unselected.size() + " 人尚未选择队伍", operator);
+			operator.sendMessage(Text.literal(Formatting.RED + "有 " + unselected.size() + " 名玩家尚未选择队伍，无法开始游戏。"), false);
+			return;
+		}
+
+		if (!playerManager.formTeams(autoTeams)) {
+			operator.sendMessage(Text.literal("开始游戏失败：" + playerManager.getLastTeamFormFailureReason().orElse("分队条件未满足，请检查队伍与模式设置。")), false);
+			return;
+		}
+
+		this.broadcastMessage(Formatting.GOLD + "=== 游戏模式：" + getGameMode() + " | 战斗类型：" + getBattleType() + " ===");
+		LOG.info("Game starting with mode={}, battleType={}", getGameMode(), getBattleType());
+
 		switch (getGameMode()) {
 			case BOSS:
 				bossInfo = Optional.of(new ServerBossBar(Text.literal(playerManager.getBossPlayer().getName()), BossBar.Color.PURPLE, BossBar.Style.PROGRESS));
@@ -581,8 +630,8 @@ public class UhcGameManager extends Taskable {
 				case NORMAL: return "普通";
 				case SOLO: return "单人";
 				case BOSS: return "Boss";
-				case GHOST: return "幽灵";
-				case BOMBER: return "爆破手";
+				case GHOST: return "隐身";
+				case BOMBER: return "小天才模式";
 				case KING: return "国王";
 				case HUNTER: return "猎人";
 				case GHOSTHUNTER: return "幽灵猎人";
@@ -603,7 +652,7 @@ public class UhcGameManager extends Taskable {
 			{
 				case NORMAL: return "普通";
 				case MARINE: return "海战";
-				case ICARUS: return "伊卡洛斯";
+				case ICARUS: return "鞘翅模式";
 				default: return name();
 			}
 		}

@@ -89,11 +89,15 @@ public class UhcGamePlayer extends Taskable {
 	}
 
 	public void addGhostModeEffect() {
-		this.getRealPlayer().ifPresent(player -> player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, Integer.MAX_VALUE, 0, true, false)));
+		this.getRealPlayer().ifPresent(player -> {
+			player.addStatusEffect(new StatusEffectInstance(StatusEffects.INVISIBILITY, Integer.MAX_VALUE, 0, true, false));
+		});
 	}
 
 	public void addBomberModeEffect() {
-		this.getRealPlayer().ifPresent(player -> player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, Integer.MAX_VALUE, 1, true, false)));
+		this.getRealPlayer().ifPresent(player -> {
+			player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, Integer.MAX_VALUE, 1, true, false));
+		});
 	}
 
 	public enum EnumStat {

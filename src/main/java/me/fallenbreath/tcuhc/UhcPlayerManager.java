@@ -16,7 +16,7 @@ import net.minecraft.block.entity.BlockEntity;
 import net.minecraft.block.entity.ChestBlockEntity;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.DyedColorComponent;
-import net.minecraft.component.type.NbtComponent;
+import net.minecraft.component.type.PotionContentsComponent;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.EquipmentSlot;
@@ -33,7 +33,6 @@ import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.entity.projectile.ProjectileEntity;
 import net.minecraft.item.*;
-import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.scoreboard.AbstractTeam;
 import net.minecraft.scoreboard.ScoreHolder;
@@ -42,6 +41,7 @@ import net.minecraft.scoreboard.Team;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
 import net.minecraft.network.packet.s2c.play.OpenWrittenBookS2CPacket;
+import net.minecraft.potion.Potions;
 import net.minecraft.sound.SoundCategory;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
@@ -70,6 +70,7 @@ public class UhcPlayerManager
 	private final List<UhcGamePlayer> combatPlayerList = Lists.newArrayList();
 	private final List<UhcGamePlayer> observePlayerList = Lists.newArrayList();
 	private final List<UhcGameTeam> teams = Lists.newArrayList();
+	private String lastTeamFormFailureReason;
 	
 	private int playersPerTeam;
 	
@@ -498,8 +499,20 @@ public class UhcPlayerManager
 	}
 	
 	public boolean formTeams(boolean auto) {
+		lastTeamFormFailureReason = null;
 		this.refreshOnlinePlayers();
 		return auto ? this.automaticFormTeams() : this.manuallyFormTeams();
+	}
+
+	public Optional<String> getLastTeamFormFailureReason()
+	{
+		return Optional.ofNullable(lastTeamFormFailureReason);
+	}
+
+	private boolean failTeamForm(String reason)
+	{
+		lastTeamFormFailureReason = reason;
+		return false;
 	}
 	
 	private boolean automaticFormTeams() {
@@ -519,7 +532,7 @@ public class UhcPlayerManager
 		
 		if (!alright) {
 			operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "仍有玩家尚未完成选择。"), false));
-			return false;
+			return failTeamForm("仍有玩家尚未完成选择，请先完成分队或阵营选择。");
 		}
 		
 		teams.clear();
@@ -585,7 +598,7 @@ public class UhcPlayerManager
 		
 		if (!alright) {
 			operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "仍有玩家尚未完成选择。"), false));
-			return false;
+			return failTeamForm("仍有玩家尚未完成选择，请先完成分队或阵营选择。");
 		}
 		
 		teams.clear();
@@ -655,7 +668,7 @@ public class UhcPlayerManager
 				}
 				if (!alright) {
 					operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "当前被选择为 Boss 的玩家超过一人。"), false));
-					return false;
+					return failTeamForm("Boss 模式下只能有一名玩家被选择为 Boss。" );
 				}
 				teams.add(new UhcGameTeam().setColorTeam(UhcGameColor.RED).addPlayer(boss));
 				UhcGameTeam team = new UhcGameTeam().setColorTeam(UhcGameColor.BLUE);
@@ -679,7 +692,7 @@ public class UhcPlayerManager
 				}
 				if (preyTeam.getPlayerCount() == 0 || hunterTeam.getPlayerCount() == 0 ) {
 					operator.ifPresent(player -> player.sendMessage(Text.literal(Formatting.DARK_RED + "猎人模式中必须同时存在猎物和猎人。"), false));
-					return false;
+					return failTeamForm("猎人模式中必须同时存在至少一名猎物和一名猎人。");
 				}
 				playersPerTeam = 1;
 				break;
@@ -745,14 +758,9 @@ public class UhcPlayerManager
 		}
 		switch (UhcGameManager.getGameMode()) {
 			case BOMBER:{
-				ItemStack item1 = new ItemStack(Items.TIPPED_ARROW, 64);
-				ItemStack item2 = new ItemStack(Items.TIPPED_ARROW, 64);
-				NbtCompound nbt1 = new NbtCompound();
-				nbt1.putInt("CustomPotionColor", 0x8B008B);
-				item1.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt1));
-				NbtCompound nbt2 = new NbtCompound();
-				nbt2.putInt("CustomPotionColor", 0x8B008B);
-				item2.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(nbt2));
+				int firstArrowSlot = slot;
+				ItemStack item1 = createBomberArrowStack();
+				ItemStack item2 = createBomberArrowStack();
 				chest.setStack(slot++, item1);
 				chest.setStack(slot++, item2);
 				if (gameManager.getOptions().getBooleanOptionValue("TNTBomber"))
@@ -762,6 +770,11 @@ public class UhcPlayerManager
 		}
 		if (gameManager.getOptions().getBooleanOptionValue("greenhandProtect"))
 			chest.setStack(slot++, new ItemStack(Items.GOLDEN_APPLE, playerCnt));
+		chest.markDirty();
+	}
+
+	private static ItemStack createBomberArrowStack() {
+		return PotionContentsComponent.createStack(Items.TIPPED_ARROW, Potions.LUCK).copyWithCount(64);
 	}
 	
 	public void spreadPlayers() {

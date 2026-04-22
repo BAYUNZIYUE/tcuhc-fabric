@@ -16,14 +16,12 @@ import net.minecraft.enchantment.Enchantments;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.component.type.DyedColorComponent;
 import net.minecraft.component.type.PotionContentsComponent;
-import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
 import net.minecraft.entity.player.PlayerInventory;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
-import net.minecraft.nbt.NbtCompound;
 import net.minecraft.potion.Potions;
 import net.minecraft.registry.Registry;
 import net.minecraft.registry.RegistryKeys;
@@ -56,7 +54,9 @@ public class TaskTitleCountDown extends TaskTimer {
 	
 	@Override
 	public void onFinish() {
-		TitleUtil.sendTitleToAllPlayers("游戏开始！", "祝你玩得开心！");
+		UhcGameManager.EnumMode mode = UhcGameManager.getGameMode();
+		String modeSubtitle = mode.toString() + " - " + UhcGameManager.getBattleType().toString();
+		TitleUtil.sendTitleToAllPlayers("游戏开始！", modeSubtitle);
 		UhcGameManager.instance.getUhcPlayerManager().getCombatPlayers().forEach(player -> player.addTask(new TaskFindPlayer(player) {
 			@SuppressWarnings("ConstantConditions")
 			@Override
@@ -87,25 +87,17 @@ public class TaskTitleCountDown extends TaskTimer {
 				});
 
 				// give invisibility and shiny potion to player for ghost mode
-				switch (UhcGameManager.getGameMode()) {
-					case BOMBER:
-						this.getGamePlayer().addBomberModeEffect();
-					case GHOST:
+					switch (UhcGameManager.getGameMode()) {
+						case BOMBER:
+							this.getGamePlayer().addBomberModeEffect();
+						case GHOST:
 						this.getGamePlayer().addGhostModeEffect();
-						ItemStack shinyPotion = new ItemStack(Items.SPLASH_POTION);
-						shinyPotion.set(DataComponentTypes.CUSTOM_NAME, Text.literal("闪耀喷溅药水"));
-						NbtCompound shinyNbt = new NbtCompound();
-						shinyNbt.putInt("CustomPotionColor", 0x00FFFF);
-						shinyPotion.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(shinyNbt));
+						ItemStack shinyPotion = createShinyPotion();
 						player.getInventory().insertStack(shinyPotion);
 						break;
 					case HUNTER:
 						if(this.getGamePlayer().getTeam().getTeamColor() == UhcGameColor.RED) {
-							ItemStack speedPotion = new ItemStack(Items.SPLASH_POTION);
-							speedPotion.set(DataComponentTypes.CUSTOM_NAME, Text.literal("疾速喷溅药水"));
-							NbtCompound speedNbt = new NbtCompound();
-							speedNbt.putInt("CustomPotionColor", 0x7FC07F);
-							speedPotion.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(speedNbt));
+							ItemStack speedPotion = createSpeedPotion();
 							player.getInventory().insertStack(speedPotion);
 						} else {
 							ItemStack compass = new ItemStack(Items.COMPASS);
@@ -118,11 +110,7 @@ public class TaskTitleCountDown extends TaskTimer {
 						if(this.getGamePlayer().getTeam().getTeamColor() == UhcGameColor.RED) {
 							this.getGamePlayer().addGhostModeEffect();
 						} else {
-							ItemStack shinyPotion2 = new ItemStack(Items.SPLASH_POTION);
-							shinyPotion2.set(DataComponentTypes.CUSTOM_NAME, Text.literal("闪耀喷溅药水"));
-							NbtCompound shiny2Nbt = new NbtCompound();
-							shiny2Nbt.putInt("CustomPotionColor", 0x00FFFF);
-							shinyPotion2.set(DataComponentTypes.CUSTOM_DATA, NbtComponent.of(shiny2Nbt));
+							ItemStack shinyPotion2 = createShinyPotion();
 							player.getInventory().insertStack(shinyPotion2);
 							ItemStack compass = new ItemStack(Items.COMPASS);
 							compass.set(DataComponentTypes.CUSTOM_NAME, Text.of("猎人指南针"));
@@ -164,6 +152,22 @@ public class TaskTitleCountDown extends TaskTimer {
 
 	private static void addEnchantment(ItemStack stack, net.minecraft.registry.RegistryKey<net.minecraft.enchantment.Enchantment> key, int level) {
 		setEnchantments(stack, builder -> builder.set(getEnchantment(key), level));
+	}
+
+	private static ItemStack createShinyPotion()
+	{
+		ItemStack shinyPotion = new ItemStack(Items.SPLASH_POTION);
+		PotionContentsComponent potionContents = new PotionContentsComponent(java.util.Optional.of(Potions.WATER), java.util.Optional.of(0x00FFFF), java.util.Collections.singletonList(new StatusEffectInstance(StatusEffects.GLOWING, 200, 0)));
+		shinyPotion.set(DataComponentTypes.POTION_CONTENTS, potionContents);
+		shinyPotion.set(DataComponentTypes.CUSTOM_NAME, Text.literal("闪耀喷溅药水"));
+		return shinyPotion;
+	}
+
+	private static ItemStack createSpeedPotion()
+	{
+		ItemStack speedPotion = PotionContentsComponent.createStack(Items.SPLASH_POTION, Potions.SWIFTNESS);
+		speedPotion.set(DataComponentTypes.CUSTOM_NAME, Text.literal("疾速喷溅药水"));
+		return speedPotion;
 	}
 
 }
