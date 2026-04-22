@@ -61,7 +61,7 @@ public class Options {
 		uhcOptionsFile = optionsFile;
 
 		addOption(new Option("gameMode", "游戏模式", new OptionType.EnumType(EnumMode.class), EnumMode.NORMAL).addTask(taskReselectTeam).setDescription("UHC 对局模式，普通为经典规则，单人为一人一队，Boss 为特殊 Boss 模式。"));
-		addOption(new Option("battleType", "战斗类型", new OptionType.EnumType(EnumBattleType.class), EnumBattleType.NORMAL).addTask(taskReselectTeam).setDescription("UHC 战斗类型，普通为经典规则，伊卡洛斯为空战，海战为水域战斗。"));
+		addOption(new Option("battleType", "战斗类型", new OptionType.EnumType(EnumBattleType.class), EnumBattleType.NORMAL).addTask(taskReselectTeam).setDescription("UHC 战斗类型，普通为经典规则，鞘翅模式为空战，海战为水域战斗。"));
 		addOption(new Option("levelType", "地形类型", new OptionType.EnumType(UhcGameManager.EnumLevelType.class), UhcGameManager.EnumLevelType.DEFAULT).addTask(taskReselectTeam).setDescription("世界地形类型，默认是原版地形，放大化为夸张地形。"));
 		addOption(new Option("randomTeams", "随机分队", new OptionType.BooleanType(), true).addTask(taskReselectTeam).setDescription("队伍随机分配还是手动选择，在单人模式下无效。"));
 		addOption(new Option("teamCount", "队伍数量", new OptionType.IntegerType(2, 8, 1), 4).addTask(taskReselectTeam).setDescription("不同队伍的数量，只在普通模式下生效。"));
@@ -74,7 +74,7 @@ public class Options {
 		addOption(new Option("greenhandProtect", "新手保护", new OptionType.BooleanType(), false).setDescription("前几分钟内降低受到的伤害。"));
 		addOption(new Option("forceViewport", "强制旁观", new OptionType.BooleanType(), true).setDescription("死亡后强制跟随队友视角。"));
 		addOption(new Option("deathBonus", "死亡增益", new OptionType.BooleanType(), true).setDescription("队友死亡后为其他成员提供短暂增益。"));
-		addOption(new Option("TNTBomber", "爆破手 TNT", new OptionType.BooleanType(), false).setDescription("爆破手模式下给予一组 TNT。"));
+		addOption(new Option("TNTBomber", "初始给予TNT", new OptionType.BooleanType(), false).setDescription("小天才模式下给予一组 TNT。"));
 
 		addOption(new Option("borderStart", "初始边界", new OptionType.IntegerType(100, 2000000, 100), 2000).setDescription("世界边界的初始大小。"));
 		addOption(new Option("borderEnd", "边界终点", new OptionType.IntegerType(10, 2000000, 10), 200).setDescription("世界边界第一次收缩结束时的大小。"));
