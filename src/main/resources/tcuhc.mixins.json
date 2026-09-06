@@ -12,6 +12,7 @@
     "core.MinecraftServerAccessor",
     "core.MinecraftServerMixin",
     "core.PlayerManagerMixin",
+    "core.RegistriesMixin",
     "entity.ServerPlayerEntityMixin",
     "entity.VillagerEntityMixin",
     "worldgen.BuriedTreasureStructureMixin",
