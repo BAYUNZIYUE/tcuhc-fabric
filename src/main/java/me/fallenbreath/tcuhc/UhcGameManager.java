@@ -46,8 +46,10 @@ import java.io.IOException;
 import java.lang.management.ManagementFactory;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Random;
 
@@ -253,25 +255,39 @@ public class UhcGameManager extends Taskable {
 		return serverRoot != null ? serverRoot : cwd;
 	}
 
+	private static boolean isWindows() {
+		return System.getProperty("os.name", "").toLowerCase(Locale.ROOT).contains("win");
+	}
+
 	private static Path getRegenRestartHelperPath() {
 		Path serverRootPath = getServerRootPath();
-		Path helperPath = serverRootPath.resolve("restart-server.sh");
-		if (helperPath.toFile().exists()) {
-			return helperPath;
+		String[] helperNames = isWindows()
+				? new String[]{"restart-server.bat", "restart-server.cmd"}
+				: new String[]{"restart-server.sh"};
+		for (String helperName : helperNames) {
+			Path helperPath = serverRootPath.resolve(helperName);
+			if (helperPath.toFile().exists()) {
+				return helperPath;
+			}
+			Path cwdHelperPath = new File(helperName).toPath().toAbsolutePath();
+			if (cwdHelperPath.toFile().exists()) {
+				return cwdHelperPath;
+			}
 		}
-		Path cwdHelperPath = new File("restart-server.sh").toPath().toAbsolutePath();
-		if (cwdHelperPath.toFile().exists()) {
-			return cwdHelperPath;
-		}
-		throw new IllegalStateException("Missing regen restart helper under " + serverRootPath);
+		throw new IllegalStateException("Missing regen restart helper (" + Arrays.toString(helperNames) + ") under " + serverRootPath);
 	}
 
 	private static void launchRegenRestartHelper(Path helperPath) {
 		String runtimeName = ManagementFactory.getRuntimeMXBean().getName();
 		String pid = runtimeName.contains("@") ? runtimeName.substring(0, runtimeName.indexOf('@')) : runtimeName;
 		try {
-			LOG.info("Launching regen restart helper {} for pid {}", helperPath, pid);
-			new ProcessBuilder(helperPath.toAbsolutePath().toString(), pid).start();
+			List<String> command = isWindows()
+					? Arrays.asList("cmd", "/c", helperPath.toAbsolutePath().toString(), pid)
+					: Arrays.asList(helperPath.toAbsolutePath().toString(), pid);
+			LOG.info("Launching regen restart helper {} for pid {}", command, pid);
+			ProcessBuilder processBuilder = new ProcessBuilder(command);
+			processBuilder.directory(helperPath.toAbsolutePath().getParent().toFile());
+			processBuilder.start();
 		} catch (IOException e) {
 			throw new RuntimeException("Failed to launch regen restart helper", e);
 		}
