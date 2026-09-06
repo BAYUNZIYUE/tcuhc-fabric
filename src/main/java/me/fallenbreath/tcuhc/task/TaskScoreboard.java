@@ -40,8 +40,9 @@ public class TaskScoreboard extends TaskTimer {
 		borderStart = options.getIntegerOptionValue("borderStart");
 		borderEnd = options.getIntegerOptionValue("borderEnd");
 		gameTime = options.getIntegerOptionValue("gameTime");
-		startTime = options.getIntegerOptionValue("borderStartTime");
-		endTime = options.getIntegerOptionValue("borderEndTime");
+		int[] borderTimes = UhcGameManager.getScaledBorderTimes();
+		startTime = borderTimes[0];
+		endTime = borderTimes[1];
 		netherTime = options.getIntegerOptionValue("netherCloseTime");
 		caveTime = options.getIntegerOptionValue("caveCloseTime");
 		

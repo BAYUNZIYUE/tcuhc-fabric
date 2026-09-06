@@ -66,7 +66,6 @@ public class TaskTitleCountDown extends TaskTimer {
 				player.clearStatusEffects();
 				UhcGameManager.instance.getUhcPlayerManager().resetHealthAndFood(player);
 				player.resetStat(Stats.CUSTOM.getOrCreateStat(Stats.TIME_SINCE_REST));  // no free phantom
-				player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 200, 4));  // 10s Resistance V
 				if(UhcGameManager.getBattleType() == UhcGameManager.EnumBattleType.ICARUS) {
 					ItemStack elytra = new ItemStack(Items.ELYTRA);
 					addEnchantment(elytra, Enchantments.MENDING, 1);
@@ -130,6 +129,9 @@ public class TaskTitleCountDown extends TaskTimer {
 						}
 						break;
 				}
+				// 10s Resistance V spawn protection, applied last so mode-specific permanent
+				// effects (e.g. bomber Resistance II) are kept as the hidden effect and re-surface afterwards
+				player.addStatusEffect(new StatusEffectInstance(StatusEffects.RESISTANCE, 200, 4));
 			}
 		}));
 		if (UhcGameManager.getGameMode() == UhcGameManager.EnumMode.KING) {

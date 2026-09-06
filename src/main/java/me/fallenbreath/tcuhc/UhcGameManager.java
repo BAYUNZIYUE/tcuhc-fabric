@@ -615,6 +615,25 @@ public class UhcGameManager extends Taskable {
 		ScoreAccess score = scoreboard.getOrCreateScore(ScoreHolder.fromName(TaskScoreboard.lines[0]), objective);
 		return score.getScore();
 	}
+
+	/**
+	 * Returns the effective border shrink window [startTime, endTime] (in seconds) so that the
+	 * border always shrinks before the game ends, even when the configured times exceed gameTime.
+	 */
+	public static int[] getScaledBorderTimes() {
+		int gameTime = Options.instance.getIntegerOptionValue("gameTime");
+		int startTime = Options.instance.getIntegerOptionValue("borderStartTime");
+		int endTime = Options.instance.getIntegerOptionValue("borderEndTime");
+		if (endTime > gameTime) {
+			double scale = (double) gameTime / Math.max(1.0, endTime);
+			startTime = (int) Math.round(startTime * scale);
+			endTime = gameTime;
+		}
+		if (startTime >= endTime) {
+			startTime = Math.max(0, endTime - Math.max(1, gameTime / 10));
+		}
+		return new int[]{startTime, endTime};
+	}
 	
 	public static enum EnumMode {
 		NORMAL(true),

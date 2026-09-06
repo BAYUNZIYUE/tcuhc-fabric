@@ -24,8 +24,9 @@ public class TaskBorderReminder extends TaskTimer {
 		Options options = Options.instance;
 		borderStart = options.getIntegerOptionValue("borderStart");
 		borderEnd = options.getIntegerOptionValue("borderEnd");
-		borderStartTime = options.getIntegerOptionValue("borderStartTime");
-		borderEndTime = options.getIntegerOptionValue("borderEndTime");
+		int[] borderTimes = UhcGameManager.getScaledBorderTimes();
+		borderStartTime = borderTimes[0];
+		borderEndTime = borderTimes[1];
 		gameTime = options.getIntegerOptionValue("gameTime");
 		border = UhcGameManager.instance.getOverWorld().getWorldBorder();
 		border.interpolateSize(borderStart, borderEnd, (borderEndTime - borderStartTime) * 1000L);

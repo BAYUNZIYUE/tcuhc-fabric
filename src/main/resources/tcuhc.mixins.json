@@ -7,6 +7,8 @@
     "block.ChestBlockEntityMixin",
     "entity.ArrowEntityMixin",
     "entity.LivingEntityMixin",
+    "entity.PlayerEntityMixin",
+    "entity.PlayerInventoryMixin",
     "core.CommandManagerMixin",
     "core.LevelStorageMixin",
     "core.MinecraftServerAccessor",

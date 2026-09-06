@@ -23,9 +23,7 @@ import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
-import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(PlayerEntity.class)
@@ -63,34 +61,34 @@ public abstract class PlayerEntityMixin extends LivingEntity
 		((IPlayerInventory)playerInventory).dropAllItemsWithoutClear();
 	}
 
-	@Inject(
+	@Redirect(
 			method = "damage",
 			at = @At(
 					value = "INVOKE",
 					target = "Lnet/minecraft/entity/LivingEntity;damage(Lnet/minecraft/entity/damage/DamageSource;F)Z"
 			)
 	)
-	private void modifyAndRecordDamage(DamageSource source, float amount, CallbackInfoReturnable<Boolean> cir)
+	private boolean modifyAndRecordDamage(LivingEntity livingEntity, DamageSource source, float amount)
 	{
-		this.modifiedDamageAmount = amount = UhcGameManager.instance.modifyPlayerDamage(amount);
+		float modified = UhcGameManager.instance.modifyPlayerDamage(amount);
 
 		PlayerEntity self = (PlayerEntity)(Object)this;
 		// reduce flying into wall damage under icarus
 		if (UhcGameManager.getBattleType() == UhcGameManager.EnumBattleType.ICARUS &&
-				source.isOf(DamageTypes.FLY_INTO_WALL) && amount > 0.0F) {
-			modifiedDamageAmount *= 0.5F;
+				source.isOf(DamageTypes.FLY_INTO_WALL) && modified > 0.0F) {
+			modified *= 0.5F;
 		}
 
 		Entity sourceEntity = source.getSource();
 		if (!(sourceEntity instanceof ServerPlayerEntity)) sourceEntity = source.getAttacker();
-		if (sourceEntity instanceof ServerPlayerEntity && amount > 0.0F) {
+		if (sourceEntity instanceof ServerPlayerEntity && modified > 0.0F) {
 			// the same logic in net.minecraft.entity.LivingEntity.damage
 			boolean blocked = this.blockedByShield(source);
 
 			// reduce player melee attack under bomber
 			if (UhcGameManager.getGameMode() == UhcGameManager.EnumMode.BOMBER && !blocked) {
-				if (!source.isIn(DamageTypeTags.IS_EXPLOSION) || !source.isIn(DamageTypeTags.IS_PROJECTILE))
-					modifiedDamageAmount *= 0.5F;
+				if (!source.isIn(DamageTypeTags.IS_EXPLOSION) && !source.isIn(DamageTypeTags.IS_PROJECTILE))
+					modified *= 0.5F;
 			}
 
 			// target player
@@ -105,19 +103,9 @@ public abstract class PlayerEntityMixin extends LivingEntity
 				sourceStat.addStat(UhcGamePlayer.EnumStat.FRIENDLY_FIRE, amount);
 			}
 		}
-	}
 
-	@ModifyArg(
-			method = "damage",
-			at = @At(
-					value = "INVOKE",
-					target = "Lnet/minecraft/entity/LivingEntity;damage(Lnet/minecraft/entity/damage/DamageSource;F)Z"
-			),
-			index = 1
-	)
-	private float modifyAndRecordDamage(float amount)
-	{
-		return this.modifiedDamageAmount;
+		this.modifiedDamageAmount = modified;
+		return super.damage(source, modified);
 	}
 
 	@Inject(method = "damage", at = @At("RETURN"))

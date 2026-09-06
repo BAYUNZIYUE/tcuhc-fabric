@@ -447,6 +447,14 @@ public class UhcPlayerManager
 			player.deathTime = 0;
 			player.isAlive = true;
 			player.getStat().setStat(EnumStat.ALIVE_TIME, 0);
+			// apply mode-specific permanent effects first so temporary Resistance V spawn
+			// protection is layered on top (kept as hidden effect) instead of discarding them
+			if (UhcGameManager.getGameMode() == EnumMode.GHOST)
+				player.addGhostModeEffect();
+			else if (UhcGameManager.getGameMode() == EnumMode.BOMBER) {
+				player.addBomberModeEffect();
+				player.addGhostModeEffect();
+			}
 			player.getRealPlayer().ifPresent(playermp -> {
 				playermp.changeGameMode(GameMode.SURVIVAL);
 				if (respawnPos != null) {
@@ -463,12 +471,6 @@ public class UhcPlayerManager
 				}
 			});
 			player.resetDeathPos();
-			if (UhcGameManager.getGameMode() == EnumMode.GHOST)
-				player.addGhostModeEffect();
-			else if (UhcGameManager.getGameMode() == EnumMode.BOMBER) {
-				player.addBomberModeEffect();
-				player.addGhostModeEffect();
-			}
 
 			// side effects & broadcast
 
