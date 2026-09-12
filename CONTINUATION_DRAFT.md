@@ -113,3 +113,73 @@
 - 新启用功能只验证到「45 个 mixin 全部应用成功、服务器正常启动」。
   游戏内实测（死亡掉落、分级金苹果、末影水晶索敌、女巫/溺尸掉落、地形类型、矿石宝箱频率）还需真人进服。
 - `oreFrequency` 目前只驱动萤石/青金石片段；该项里「钻石/金矿」那部分**仍无读取点**。
+
+---
+
+## 1.2.5 → 1.2.6：修掉 4 个实机 bug（2026-09-12）
+
+用户在游戏内核验时暴露的问题，逐条修复并实测。
+
+### 1. 预生成永远卡在 99.94%（`TaskPregenerate`）
+
+靠"轮询 `ChunkHolder` 状态"判定完成的机制，在部分区块上永远等不到结果。诊断日志显示两种形态：
+
+```
+Pregenerate giving up on chunk [-12, 15] ... (holderPresent=false, actualStatus=null)
+Pregenerate re-queued chunk [-6, -4] ... (holderPresent=true, actualStatus=minecraft:light)
+```
+
+即 **holder 根本没被创建**，或 **卡在光照阶段**。原代码要空等 `300 次 × 20 tick`（**5 分钟**）
+才放弃，于是 overworld 停在 99.94% → nether 不启动 → `preload` 永不创建 → 下次启动又删世界。
+
+**改为三层保护**：单区块 **15 秒**超时 → 超时前每 3 次重试**重新投递一次 ticket**（最多 5 次）
+→ 整个任务加**"无进展 60 秒"**兜底；放弃时打印 holder 存在性与实际状态。
+实测：`overworld 1分14秒 失败 0`、`the_nether 18秒 失败 0`、`preload ✅ 创建`。
+
+### 2. 溺尸没有必掉三叉戟（`DrownedEntityMixin` + 新增 `ZombieEntityMixin`）
+
+逻辑原本挂在 `DrownedEntity#initialize` 上。但 **1.21 的 `/summon` 根本不调用 `initialize`** ——
+`SummonCommand.summon(...)` 里那个调用被命令传入的 `false` 挡在一个 `ifeq` 后面，
+所以命令生成的溺尸永远保持默认 0.085 掉率（自然生成才会走 initialize）。
+
+**新增 `ZombieEntityMixin`**，把判定挪到 `ZombieEntity#dropEquipment` 的 `@At("HEAD")`，
+覆盖自然生成 / 刷怪蛋 / 结构生成 / `/summon` 全部路径。
+实测：5 轮对照 **5/5** 掉落。
+
+### 3. 树叶掉苹果在真实挖掘下完全失效（`apple.json`）
+
+`match_tool` 谓词用的是 1.20 旧格式：
+
+```json
+"predicate": {"enchantments": [{"enchantment": "minecraft:silk_touch", "levels": {"min": 1}}]}
+```
+
+1.21 已把附魔谓词挪进 `predicates`：
+
+```json
+"predicate": {"predicates": {"minecraft:enchantments": [{"enchantments": "minecraft:silk_touch", ...}]}}
+```
+
+旧字段**不被识别、也不报错**，谓词退化成"匹配任何物品" → `match_tool` 恒为 true
+→ 外层 `inverted` 恒为 false → **真实挖掘时苹果永远不掉**。
+
+**改为 1.21 格式**（并与原版 `oak_leaves.json` 一致，`items` 也改用字符串写法）。
+实测（BLOCK context）真实挖掘 **15/1200 = 1.25%**，与配置吻合；修复前 **0/2000**。
+剪刀 / 精准采集仍然正确拦截。
+
+> ⚠️ **教训**：`/loot ... loot <table>` 走 **COMMAND context（没有 TOOL 参数）**，
+> 会掩盖所有依赖工具的谓词 bug，测出假的"功能正常"；
+> 必须用 `/loot ... mine <pos> [<tool>]`（**BLOCK context**，玩家挖方块走的正是这条）。
+
+### 4. 附魔书交易注入失败（`TradeOffersEnchantBookFactoryMixin`）
+
+1.21 的 `TradeOffer` 构造器从 `(ItemStack,ItemStack,ItemStack,IIF)` 改成
+`(TradedItem, Optional<TradedItem>, ItemStack, I, I, F)`，旧的字符串 target 匹配到 0 个目标。
+**改为新描述符**。这类"字符串 target"的 mixin 注解处理器**不校验**，只在运行时暴露。
+
+### 顺带
+
+- `LootInjector`：补 `ServerLifecycleEvents.END_DATA_PACK_RELOAD` 钩子。
+  旧版注入挂在 `LootManager#apply`（每次数据包重载都会重跑）；移植后只挂 `SERVER_STARTED`，
+  一旦有人 `/reload`，loot table 会从 JSON 重建，注入被**静默清掉**。并补回逐表诊断日志。
+- `tcuhc.mixins.json`：注册数 45 → **46**（新增 `entity.ZombieEntityMixin`）。

@@ -25,7 +25,7 @@ public abstract class DrownedEntityMixin extends ZombieEntity
 	{
 		if (this.getEquippedStack(EquipmentSlot.MAINHAND).getItem() == Items.TRIDENT)
 		{
-			this.handDropChances[EquipmentSlot.MAINHAND.getEntitySlotId()] = 2.0F;
+			this.setEquipmentDropChance(EquipmentSlot.MAINHAND, 2.0F);
 		}
 	}
 }

@@ -32,13 +32,31 @@ public class TaskPregenerate extends Task
 	private static final int PARALLELISM_LIMIT = 2;
 	private static final int ENQUEUE_THRESHOLD = Math.max(1, PARALLELISM_LIMIT / 2);
 	private static final int RETRY_DELAY_TICKS = 20;
-	private static final int RETRY_LOG_INTERVAL = 100;
-	private static final int MAX_RETRY_COUNT = 300;
+	private static final int RETRY_LOG_INTERVAL = 20;
+	/**
+	 * A chunk that does not reach {@link ChunkStatus#FULL} within this many ticks is given up on.
+	 * Chunks that are merely slow finish in well under a second, so this is purely a guard against
+	 * a chunk that can never be finalized (a broken feature hook, a dead ticket, ...). Without it a
+	 * single stuck chunk keeps pregeneration at 99% forever.
+	 */
+	private static final int CHUNK_TIMEOUT_TICKS = 300;
+	/** Retries between two ticket reload attempts (a reload is every 3 retries, i.e. ~3 seconds). */
+	private static final int TICKET_RELOAD_RETRY_STEP = 3;
+	/** How often a chunk's tickets are re-added before we conclude the chunk can never load. */
+	private static final int MAX_TICKET_RELOADS = 5;
+	/**
+	 * If no chunk at all completes for this long, the chunk pipeline itself is wedged and the task
+	 * gives up instead of burning the world generation flow forever. Measured since the last
+	 * successful or failed chunk, so a legitimately large map never trips it.
+	 */
+	private static final int STALL_TIMEOUT_TICKS = 20 * 60;
 	private static final int TICKET_RADIUS = 1;
 
 	private static TaskPregenerate currentOverworldTask = null;
 
 	private long startTimeMili;
+	private long startTick;
+	private long lastProgressTick;
 	private final List<ChunkPos> chunkToLoad;
 	private final Iterator<ChunkPos> iterator;
 	private final MinecraftServer mcServer;
@@ -52,14 +70,17 @@ public class TaskPregenerate extends Task
 	private static class PendingChunk
 	{
 		private final ChunkPos chunkPos;
-		private final List<ChunkPos> tickets;
+		/** Every ticket ever added for this chunk, including the ones from reload attempts. */
+		private final List<ChunkPos> tickets = new ArrayList<>();
+		private final long queuedAtTick;
 		private int retryCount;
+		private int reloadCount;
 		private long nextAttemptTick;
 
-		private PendingChunk(ChunkPos chunkPos, List<ChunkPos> tickets)
+		private PendingChunk(ChunkPos chunkPos, long queuedAtTick)
 		{
 			this.chunkPos = chunkPos;
-			this.tickets = tickets;
+			this.queuedAtTick = queuedAtTick;
 		}
 	}
 
@@ -129,14 +150,28 @@ public class TaskPregenerate extends Task
 		{
 			return;
 		}
+		long currentTick = this.mcServer.getTicks();
 		for (ChunkPos chunkPos : chunks)
 		{
-			List<ChunkPos> tickets = createTicketArea(chunkPos);
-			tickets.forEach(this::addTicketAt);
-			this.pendingChunks.put(chunkPos, new PendingChunk(chunkPos, tickets));
-			this.queuedCount.incrementAndGet();
+			this.queueChunk(chunkPos, currentTick);
 		}
 		this.world.getChunkManager().executeQueuedTasks();
+	}
+
+	private void queueChunk(ChunkPos chunkPos, long currentTick)
+	{
+		PendingChunk pendingChunk = new PendingChunk(chunkPos, currentTick);
+		this.addTicketsFor(pendingChunk);
+		this.pendingChunks.put(chunkPos, pendingChunk);
+		this.queuedCount.incrementAndGet();
+	}
+
+	/** Adds a fresh 3x3 ticket area for the chunk and remembers it so it can be removed again. */
+	private void addTicketsFor(PendingChunk pendingChunk)
+	{
+		List<ChunkPos> tickets = createTicketArea(pendingChunk.chunkPos);
+		tickets.forEach(this::addTicketAt);
+		pendingChunk.tickets.addAll(tickets);
 	}
 
 	private void pollChunkResults()
@@ -154,56 +189,91 @@ public class TaskPregenerate extends Task
 				continue;
 			}
 			ChunkHolder holder = ((ServerChunkLoadingManagerAccessor)chunkManager.chunkLoadingManager).invokeGetChunkHolder(pendingChunk.chunkPos.toLong());
-			if (holder == null)
+			// A missing holder must still go through the timeout path below, otherwise the last pending
+			// chunk of a world can stick around forever and block pregeneration at 99%.
+			ChunkStatus actualStatus = holder == null ? null : ((AbstractChunkHolderAccessor)holder).invokeGetActualStatus();
+			Chunk chunk = holder == null ? null : ((AbstractChunkHolderAccessor)holder).invokeGetUncheckedOrNull(ChunkStatus.FULL);
+			if (chunk != null && actualStatus == ChunkStatus.FULL)
 			{
-				// Missing holders must still advance the retry path, otherwise the final pending chunk can stick forever.
-				this.acceptChunkResult(pendingChunk.chunkPos, false);
+				this.finishChunk(pendingChunk, true);
 				continue;
 			}
-			AbstractChunkHolderAccessor statusAccessor = (AbstractChunkHolderAccessor)holder;
-			Chunk chunk = statusAccessor.invokeGetUncheckedOrNull(ChunkStatus.FULL);
-			boolean ready = chunk != null && statusAccessor.invokeGetActualStatus() == ChunkStatus.FULL;
-			this.acceptChunkResult(pendingChunk.chunkPos, ready);
+			pendingChunk.retryCount++;
+			pendingChunk.nextAttemptTick = currentTick + RETRY_DELAY_TICKS;
+			long waitedTicks = currentTick - pendingChunk.queuedAtTick;
+			if (waitedTicks >= CHUNK_TIMEOUT_TICKS)
+			{
+				UhcGameManager.LOG.error(
+						"Pregenerate giving up on chunk {} in {} after {} ticks (holderPresent={}, actualStatus={}, fullChunk={})",
+						pendingChunk.chunkPos, this.getWorldName(), waitedTicks, holder != null, actualStatus, chunk != null
+				);
+				this.finishChunk(pendingChunk, false);
+			}
+			else if (pendingChunk.reloadCount < MAX_TICKET_RELOADS && pendingChunk.retryCount % TICKET_RELOAD_RETRY_STEP == 0)
+			{
+				// A missing holder usually means the queued ticket was never picked up by the chunk
+				// manager. Adding a fresh ticket area gives the chunk another chance instead of just
+				// waiting for the timeout.
+				this.addTicketsFor(pendingChunk);
+				pendingChunk.reloadCount++;
+				UhcGameManager.LOG.warn(
+						"Pregenerate re-queued chunk {} in {} (attempt {}, holderPresent={}, actualStatus={})",
+						pendingChunk.chunkPos, this.getWorldName(), pendingChunk.reloadCount, holder != null, actualStatus
+				);
+			}
+			else if (pendingChunk.retryCount % RETRY_LOG_INTERVAL == 0)
+			{
+				UhcGameManager.LOG.warn(
+						"Pregenerate still waiting on chunk {} in {} ({} ticks, holderPresent={}, actualStatus={})",
+						pendingChunk.chunkPos, this.getWorldName(), waitedTicks, holder != null, actualStatus
+				);
+			}
 		}
 	}
 
-	private void acceptChunkResult(ChunkPos chunkPos, boolean success)
+	private void finishChunk(PendingChunk pendingChunk, boolean success)
 	{
-		PendingChunk pendingChunk = this.pendingChunks.get(chunkPos);
-		if (pendingChunk == null)
+		if (!this.pendingChunks.remove(pendingChunk.chunkPos, pendingChunk))
 		{
 			return;
 		}
+		pendingChunk.tickets.forEach(this::removeTicketAt);
+		this.queuedCount.decrementAndGet();
 		if (success)
 		{
-			this.pendingChunks.remove(chunkPos);
-			pendingChunk.tickets.forEach(this::removeTicketAt);
-			this.queuedCount.decrementAndGet();
 			this.loadedChunkAmount.incrementAndGet();
 		}
 		else
 		{
-			pendingChunk.retryCount++;
-			pendingChunk.nextAttemptTick = this.mcServer.getTicks() + RETRY_DELAY_TICKS;
-			if (pendingChunk.retryCount >= MAX_RETRY_COUNT)
-			{
-				this.pendingChunks.remove(chunkPos);
-				pendingChunk.tickets.forEach(this::removeTicketAt);
-				this.queuedCount.decrementAndGet();
-				this.failedChunkAmount.incrementAndGet();
-				UhcGameManager.LOG.error("Pregenerate permanently failed chunk {} in {} after {} retries", chunkPos, this.getWorldName(), pendingChunk.retryCount);
-			}
-			else
-			{
-				if (pendingChunk.retryCount % RETRY_LOG_INTERVAL == 0)
-				{
-					UhcGameManager.LOG.warn("Pregenerate still waiting on chunk {} in {} after {} retries", chunkPos, this.getWorldName(), pendingChunk.retryCount);
-				}
-			}
+			this.failedChunkAmount.incrementAndGet();
 		}
+		this.lastProgressTick = this.mcServer.getTicks();
 		if (this.queuedCount.get() <= ENQUEUE_THRESHOLD)
 		{
 			this.tryGenerateChunks();
+		}
+	}
+
+	/** Drops every remaining chunk so a stuck task can still finish and let the flow move on. */
+	private void abandonRemainingChunks()
+	{
+		int dropped = 0;
+		for (PendingChunk pendingChunk : this.pendingChunks.values())
+		{
+			pendingChunk.tickets.forEach(this::removeTicketAt);
+			dropped++;
+		}
+		this.pendingChunks.clear();
+		this.queuedCount.set(0);
+		while (this.iterator.hasNext())
+		{
+			this.iterator.next();
+			dropped++;
+		}
+		if (dropped > 0)
+		{
+			this.failedChunkAmount.addAndGet(dropped);
+			this.world.getChunkManager().executeQueuedTasks();
 		}
 	}
 
@@ -263,6 +333,15 @@ public class TaskPregenerate extends Task
 		{
 			return;
 		}
+		if (this.mcServer.getTicks() - this.lastProgressTick > STALL_TIMEOUT_TICKS)
+		{
+			UhcGameManager.LOG.error(
+					"Pregenerate for {} made no progress for {} ticks, abandoning the remaining chunks",
+					this.getWorldName(), STALL_TIMEOUT_TICKS
+			);
+			this.abandonRemainingChunks();
+			return;
+		}
 		long miliPassed = Util.getMeasuringTimeMs() - this.startTimeMili;
 		boolean log = this.mcServer.getTicks() % (20 * 5) == 0;
 		boolean say = this.mcServer.getTicks() % (20 * 30) == 0;
@@ -287,6 +366,8 @@ public class TaskPregenerate extends Task
 	public void onAdd()
 	{
 		this.startTimeMili = Util.getMeasuringTimeMs();
+		this.startTick = this.mcServer.getTicks();
+		this.lastProgressTick = this.startTick;
 		this.tryGenerateChunks();
 	}
 

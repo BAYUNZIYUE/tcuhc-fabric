@@ -30,6 +30,7 @@
     "entity.TradeOffersEnchantBookFactoryMixin",
     "entity.VillagerEntityMixin",
     "entity.WitchEntityMixin",
+    "entity.ZombieEntityMixin",
     "item.ChorusFruitMixin",
     "item.CrossbowItemMixin",
     "item.FlowerBlockMixin",

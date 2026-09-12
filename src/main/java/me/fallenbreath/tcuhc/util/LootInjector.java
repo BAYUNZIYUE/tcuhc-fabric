@@ -40,6 +40,16 @@ public class LootInjector
 	public static void register()
 	{
 		ServerLifecycleEvents.SERVER_STARTED.register(LootInjector::onServerStarted);
+		// Loot tables are rebuilt from the datapack on every /reload, which would silently undo the
+		// injection below (the old LootManager#apply hook ran on every reload, this one did not).
+		// Re-run after each successful data pack reload so the UHC drops always survive.
+		ServerLifecycleEvents.END_DATA_PACK_RELOAD.register((server, resourceManager, success) ->
+		{
+			if (success && server != null)
+			{
+				onServerStarted(server);
+			}
+		});
 	}
 
 	private static void onServerStarted(MinecraftServer server)
@@ -86,7 +96,7 @@ public class LootInjector
 			if (block instanceof LeavesBlock)
 			{
 				List<LootPool> lootPools = Lists.newArrayList(tableAccessor.getPools());
-				boolean modified = false;
+				int replacedIndex = -1;
 				for (int i = 0; i < lootPools.size(); i++)
 				{
 					List<LootPoolEntry> lootEntries = ((LootPoolAccessor) lootPools.get(i)).getEntries();
@@ -95,15 +105,18 @@ public class LootInjector
 							&& ((ItemEntryAccessor) lootEntries.get(0)).getItem().value() == Items.APPLE)
 					{
 						lootPools.set(i, uhcAppleDrop);
-						modified = true;
+						replacedIndex = i;
 					}
 				}
-				if (!modified)
+				if (replacedIndex < 0)
 				{
 					lootPools.add(uhcAppleDrop);
 				}
 				tableAccessor.setPools(lootPools);
 				leavesModified++;
+				UhcGameManager.LOG.info("UHC loot: {} -> {} (pool index {}, {} pools now)",
+						id, replacedIndex < 0 ? "APPENDED apple pool" : "REPLACED apple pool",
+						replacedIndex, lootPools.size());
 			}
 			else if (block == Blocks.GLOWSTONE || block == Blocks.LAPIS_ORE || block == Blocks.DEEPSLATE_LAPIS_ORE)
 			{
