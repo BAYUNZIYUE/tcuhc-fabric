@@ -1,6 +1,9 @@
 name: Build or Release
 
 on:
+  push:
+    tags:
+      - 'v*.*.*'
   workflow_dispatch:
     inputs:
       create_release:
@@ -38,8 +41,19 @@ jobs:
         id: version
         run: python scripts/validate_release.py --github-output "$GITHUB_OUTPUT"
 
+      - name: Require tag to match mod version
+        if: github.event_name == 'push'
+        env:
+          EXPECTED_TAG: ${{ steps.version.outputs.tag }}
+          ACTUAL_TAG: ${{ github.ref_name }}
+        run: |
+          if [ "$ACTUAL_TAG" != "$EXPECTED_TAG" ]; then
+            echo "Tag $ACTUAL_TAG does not match mod_version ($EXPECTED_TAG)." >&2
+            exit 1
+          fi
+
       - name: Refuse an existing release tag
-        if: inputs.create_release
+        if: github.event_name == 'workflow_dispatch' && inputs.create_release
         env:
           TAG: ${{ steps.version.outputs.tag }}
         run: |
@@ -70,7 +84,7 @@ jobs:
           retention-days: 14
 
       - name: Publish GitHub Release
-        if: inputs.create_release
+        if: github.event_name == 'push' || inputs.create_release
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ steps.version.outputs.tag }}

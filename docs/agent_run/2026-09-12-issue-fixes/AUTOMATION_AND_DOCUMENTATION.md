@@ -7,7 +7,7 @@ Target: Minecraft 1.21.1 / TC UHC 1.2.9
 
 - Added the root `tests/` suite. It runs repository metadata/resource checks, command and option documentation coverage, mixin auditing, and all regression suites developed during this agent run.
 - Expanded GitHub CI to run on every push and pull request, compile with Java 21, package the mod, and start a disposable dedicated server as a smoke test.
-- Added a manually dispatched **Build or Release** workflow. Its `create_release` input selects artifact-only compilation or publication of a new GitHub Release.
+- Added a **Build or Release** workflow. Its manual `create_release` input selects artifact-only compilation or publication, while a matching `v<version>` tag publishes automatically after all checks pass.
 - Added strict `major.minor.patch` version and built-JAR metadata validation.
 - Added a local GitHub CLI dispatcher with explicit `--build-only` and `--release` choices.
 - Replaced the historical root README with a formal project README.

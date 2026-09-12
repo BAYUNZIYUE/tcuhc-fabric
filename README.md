@@ -98,7 +98,7 @@ GitHub Actions runs repository checks, the Gradle build, packaging, and a dedica
 
 ## Build and release workflow
 
-The **Build or Release** workflow is manually dispatched from GitHub Actions and always validates the version, runs all tests, builds both JARs, and smoke-tests a server.
+The **Build or Release** workflow always validates the version, runs all tests, builds both JARs, and smoke-tests a server. It can be dispatched manually or triggered by pushing a matching `v<version>` tag.
 
 - Select `create_release: false` to compile and retain downloadable workflow artifacts without publishing a release.
 - Select `create_release: true` to create a `v<version>` GitHub tag/release and attach the binary and sources JARs after all checks pass.
