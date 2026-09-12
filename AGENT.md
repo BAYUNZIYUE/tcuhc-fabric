@@ -25,7 +25,7 @@ changes onto it.
 | Fabric API | `0.116.9+1.21.1` (api-base, biome-v1, resource-loader-v0, lifecycle-events-v1, all JiJ `include`d) |
 | Build | Gradle 8.8 + Fabric Loom 1.7.1 |
 | **JDK** | **21 — mandatory, see below** |
-| Mod version | `1.2.8` |
+| Mod version | `1.2.9` |
 | Mod id / group | `tcuhc` / `me.fallenbreath` |
 | Entrypoint | `me.fallenbreath.tcuhc.TcUhcMod` (`main` only, no client) |
 
@@ -191,7 +191,7 @@ caveCloseTime=500
 /uhc adjust kill <player>   # force win conditions without fighting
 /uhc stop
 
-/uhc preset save <name>     # 1.2.8: snapshot the whole option set
+/uhc preset save <name>     # snapshot the whole option set
 /uhc preset load <name>     # then `confirm` to apply
 /uhc preset diff <name>     # what would change
 /uhc debug biome <radius>   # sample biomes, for verifying generator swaps
