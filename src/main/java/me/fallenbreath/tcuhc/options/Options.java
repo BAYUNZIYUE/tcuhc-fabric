@@ -4,6 +4,8 @@
 
 package me.fallenbreath.tcuhc.options;
 
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import me.fallenbreath.tcuhc.UhcGameManager;
 import me.fallenbreath.tcuhc.UhcGameManager.EnumMode;
@@ -17,10 +19,14 @@ import org.apache.logging.log4j.Logger;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class Options {
@@ -28,13 +34,42 @@ public class Options {
 	private static final String OPTION_FILE_NAME = "uhc.properties";
 	public static Options instance = new Options(new File(OPTION_FILE_NAME));
 	
+	/**
+	 * Options that only take effect once the terrain is generated again, and which do not carry
+	 * {@code setNeedToSave()} themselves. Those six loot and spawn frequency options are picked up
+	 * through {@link Option#needToSave()} instead of a copy of the list here.
+	 */
+	private static final Set<String> WORLD_GENERATION_OPTIONS = ImmutableSet.of(
+			"levelType", "disableOceanBiomes", "battleType"
+	);
+	
+	/** Options read once in {@link UhcGameManager#onServerInited()}, i.e. only on a server start. */
+	private static final Set<String> SERVER_START_OPTIONS = ImmutableSet.of(
+			"netherPregenerate", "pregenerateOnStart"
+	);
+	
 	private final Map<String, Option> configOptions = Maps.newHashMap();
+	/** Registration order of {@link #configOptions}, so listings and preset files come out stable. */
+	private final List<String> optionOrder = Lists.newArrayList();
 	private final Properties uhcProperties = new Properties();
 	private final File uhcOptionsFile;
+	
+	/**
+	 * Nesting depth of {@link #runBatch}. While it is above zero the two shared tasks are deferred
+	 * instead of run: without that, applying a 34 entry preset would write uhc.properties 34 times
+	 * and hand every player a fresh config book up to six times over.
+	 */
+	private int batchDepth = 0;
+	private boolean batchSavePending = false;
+	private boolean batchReselectPending = false;
 	
 	public final Task taskSaveProperties = new Task() {
 		@Override
 		public void onUpdate() {
+			if (Options.this.inBatch()) {
+				Options.this.batchSavePending = true;
+				return;
+			}
 			Options.this.savePropertiesFile();
 		}
 		@Override
@@ -44,17 +79,25 @@ public class Options {
 	public final Task taskReselectTeam = new Task() {
 		@Override
 		public void onUpdate() {
-			for (UhcGamePlayer player : UhcGameManager.instance.getUhcPlayerManager().getAllPlayers()) {
-				player.setColorSelected(null);
-				player.getRealPlayer().ifPresent(playermp -> {
-					UhcGameManager.instance.getUhcPlayerManager().regiveConfigItems(playermp);
-					playermp.setInvulnerable(true);
-				});
+			if (Options.this.inBatch()) {
+				Options.this.batchReselectPending = true;
+				return;
 			}
+			Options.this.reselectTeam();
 		}
 		@Override
 		public boolean hasFinished() { return false; }
 	};
+	
+	private void reselectTeam() {
+		for (UhcGamePlayer player : UhcGameManager.instance.getUhcPlayerManager().getAllPlayers()) {
+			player.setColorSelected(null);
+			player.getRealPlayer().ifPresent(playermp -> {
+				UhcGameManager.instance.getUhcPlayerManager().regiveConfigItems(playermp);
+				playermp.setInvulnerable(true);
+			});
+		}
+	}
 	
 	private Options(File optionsFile) {
 		instance = this;
@@ -133,6 +176,7 @@ public class Options {
 	
 	private void addOption(Option option) {
 		configOptions.put(option.getId(), option);
+		optionOrder.add(option.getId());
 	}
 	
 	public Optional<Option> getOption(String option) {
@@ -141,6 +185,122 @@ public class Options {
 
 	public Stream<String> getOptionIdStream() {
 		return configOptions.keySet().stream();
+	}
+	
+	/** Every option in registration order. Map iteration order is not usable for anything shown. */
+	public List<Option> getOptionsInOrder() {
+		return optionOrder.stream().map(configOptions::get).collect(Collectors.toList());
+	}
+	
+	/** The current value of every option, as the same strings {@code uhc.properties} holds. */
+	public Map<String, String> snapshot() {
+		Map<String, String> values = new LinkedHashMap<>();
+		getOptionsInOrder().forEach(opt -> values.put(opt.getId(), opt.getStringValue()));
+		return values;
+	}
+	
+	/**
+	 * Applies a preset over the current configuration.
+	 *
+	 * <p>Not all or nothing overall, but all or nothing per load: every value is validated first
+	 * and a single unusable one aborts the whole load, because a half applied preset is far more
+	 * confusing than a refused one. Two things are deliberately not errors - an id this build does
+	 * not know (a preset from another version) is skipped with a warning, and an option the preset
+	 * does not mention keeps its current value rather than being reset to its default.
+	 *
+	 * @param values option id to raw value, as read from a preset file
+	 * @return what happened, so the caller can tell the user exactly what did and did not apply
+	 */
+	public SnapshotResult applySnapshot(Map<String, String> values) {
+		SnapshotResult result = new SnapshotResult();
+		Map<String, String> usable = new LinkedHashMap<>();
+		
+		for (Entry<String, String> entry : values.entrySet()) {
+			Option option = configOptions.get(entry.getKey());
+			if (option == null) {
+				result.unknown.add(entry.getKey());
+				continue;
+			}
+			String problem = option.validateStringValue(entry.getValue());
+			if (problem != null) {
+				result.invalid.add(entry.getKey() + "=" + entry.getValue() + "（" + problem + "）");
+			} else if (option.getStringValue().equals(entry.getValue())) {
+				result.unchanged.add(entry.getKey());
+			} else {
+				usable.put(entry.getKey(), entry.getValue());
+			}
+		}
+		
+		optionOrder.stream().filter(id -> !values.containsKey(id)).forEach(result.missing::add);
+		
+		if (!result.invalid.isEmpty()) {
+			return result;
+		}
+		
+		runBatch(() -> usable.forEach((id, raw) -> configOptions.get(id).setStringValue(raw)));
+		result.applied.addAll(usable.keySet());
+		return result;
+	}
+	
+	/**
+	 * Runs {@code action} with the shared save and team-reselect tasks deferred, then fires each of
+	 * them at most once afterwards. {@link Option#setStringValue} calls {@code updateTasks()}
+	 * synchronously, so anything touching many options at once has to go through here.
+	 */
+	public void runBatch(Runnable action) {
+		batchDepth++;
+		try {
+			action.run();
+		} finally {
+			batchDepth--;
+			if (batchDepth == 0) {
+				boolean save = batchSavePending;
+				boolean reselect = batchReselectPending;
+				batchSavePending = false;
+				batchReselectPending = false;
+				if (reselect) {
+					taskReselectTeam.onUpdate();
+				}
+				if (save) {
+					taskSaveProperties.onUpdate();
+				}
+			}
+		}
+	}
+	
+	public boolean inBatch() {
+		return batchDepth > 0;
+	}
+	
+	/** True when a change to this option only shows up after {@code /uhc regen} rebuilds the world. */
+	public static boolean affectsWorldGeneration(String optionId) {
+		if (WORLD_GENERATION_OPTIONS.contains(optionId)) {
+			return true;
+		}
+		return instance.getOption(optionId).map(Option::needToSave).orElse(false);
+	}
+	
+	/** True when a change to this option is only read again on the next server start. */
+	public static boolean affectsServerStart(String optionId) {
+		return SERVER_START_OPTIONS.contains(optionId);
+	}
+	
+	/** Outcome of {@link #applySnapshot}, split so the caller can report each case differently. */
+	public static class SnapshotResult {
+		/** Ids that were changed. */
+		public final List<String> applied = Lists.newArrayList();
+		/** Ids whose value already matched, so nothing was written for them. */
+		public final List<String> unchanged = Lists.newArrayList();
+		/** Ids present in the preset but unknown to this build. Warnings, never fatal. */
+		public final List<String> unknown = Lists.newArrayList();
+		/** {@code id=value} pairs this build knows but cannot parse. Any entry here means nothing was applied. */
+		public final List<String> invalid = Lists.newArrayList();
+		/** Options of this build that the preset says nothing about; they keep their current value. */
+		public final List<String> missing = Lists.newArrayList();
+		
+		public boolean hasErrors() {
+			return !invalid.isEmpty();
+		}
 	}
 	
 	public void setOptionValue(String option, Object value) {
@@ -178,7 +338,9 @@ public class Options {
 	}
 
 	public void resetOptions(boolean generate) {
-		configOptions.values().stream().filter(opt -> opt.needToSave() == generate).forEach(Option::reset);
+		// Batched for the same reason a preset load is: up to 34 options each firing the shared
+		// save task, plus six of them re-sending the config book, is pure waste on a single reset.
+		runBatch(() -> configOptions.values().stream().filter(opt -> opt.needToSave() == generate).forEach(Option::reset));
 	}
 
 }

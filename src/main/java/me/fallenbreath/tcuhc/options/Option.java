@@ -35,6 +35,13 @@ public class Option extends Taskable {
 	public void setStringValue(String value) { type.setStringValue(value); this.updateTasks(); }
 	public void setInitialValue(String value) { type.setStringValue(value); }
 	
+	/**
+	 * Explains why {@link #setStringValue} would not take this raw value, or null when it would.
+	 * Handed straight to the user by the preset loader, which must not apply a value it cannot
+	 * trust: setStringValue has no failure signal of its own.
+	 */
+	public String validateStringValue(String value) { return type.validateStringValue(value); }
+	
 	public String getName() { return optionName; }
 	public String getDescription() { return optionDescript; }
 	public String getIncString() { return type.getIncString(); }

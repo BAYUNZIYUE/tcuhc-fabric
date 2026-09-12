@@ -332,3 +332,131 @@ newInit  = DensityFunctionTypes.lerp(weight, originalInitDensity, landSurf)
 
 **调参入口**：`LandSurfaceDensityFunction.surfaceHeight()` 里的倍频表
 （波长/幅度/旋转角/种子），以及 `MinecraftServerMixin` 顶部的 `LAND_SURFACE_BASE_HEIGHT`。
+
+---
+
+## `/uhc preset`（2026-09-12 20:00，1.2.8，未提交）
+
+**需求**：用指令快速保存 / 加载 / 删除 UHC 的配置。
+
+```
+/uhc preset [list]                    列出预设：一行一条「名字 + 模式 + 队伍数」，与当前一致的标 *
+/uhc preset save <name> [overwrite]   保存当前配置（同名需 overwrite）
+/uhc preset load <name> [confirm]     应用预设（对局进行中需 confirm）
+/uhc preset show <name>               打印该预设的全部键值（含中文名）与保存时间
+/uhc preset diff <name>               只列差异，不改动（dry-run）
+/uhc preset delete <name> [confirm]   删除，需二次确认
+```
+
+`list` 的实际渲染（每行一条，图例挤在表头里）：
+```
+预设 5 个 · uhc_presets/ · * = 当前配置
+  full    Boss 6队  *
+  mini    普通
+  solo    单人模式
+  nomode  ?
+```
+摘要只有 **模式 + 队伍数**（`summarize()`）：战斗类型/地形类型交给 `show`，
+**保存时间也从 `list` 移到了 `show`** —— 列表要能在一行内读完，详细视图才堆信息。
+单人模式不显示队伍数（`EnumMode.SOLO.toString()` 比对，避免硬编码「单人」）；
+手改预设缺 `gameMode` 显示 `?`、缺 `teamCount` 就只显示模式。
+
+目录 `uhc_presets/`（与 `uhc.properties` 同级、CWD 相对）。
+
+### 设计要点
+
+**预设文件就是一份纯 Properties**：键 = optionId、值 = `Option.getStringValue()`，
+与 `uhc.properties` **同构**，可以直接互相改名替换（前者读 ISO-8859-1 + `\uXXXX` 转义，
+后者同样用 `Properties.store(OutputStream)` 写，保持纯 ASCII）。
+
+**元信息全部派生，不存文件**（与最初的方案不同，实测后简化）：
+名字取自文件名、保存时间取 `lastModified()`、摘要在读文件时现算。
+最初打算把 `#savedAt=` / `#summary=` 写进注释行，但 `Properties.store` 会把注释里的
+非 ASCII 转义、而 `load` 按 ISO-8859-1 读，元信息要额外做转义/反解的对称处理；
+改成派生之后文件是纯 Properties，**没有索引也就不会有索引与文件不一致**。
+
+**加载是「全有或全无」**：先校验每一项，任一值不可用就整体不应用并逐条报出原因。
+但两类情况**不算错**：本版本没有的键跳过并警告（跨版本预设不会炸）；
+预设没提到的选项**保持当前值**（不会把旧预设悄悄重置成默认）。
+不做整体回滚之外的「严格模式」——这一个语义已经够了。
+
+### ⚠️ 重点：`setStringValue` 会同步触发任务，必须批量
+
+`Option.setStringValue()` → `updateTasks()` **立刻同步执行**。而每个 Option 在构造时都
+`addTask(taskSaveProperties)`，另有 6 个（`gameMode`/`battleType`/`levelType`/
+`disableOceanBiomes`/`randomTeams`/`teamCount`）挂了 `taskReselectTeam`（遍历所有玩家、
+清空颜色选择、**重发配置书**、设 invulnerable）。
+
+**朴素写法加载 32 项 = 写 32 次盘 + 重发最多 6 次配置书。**
+
+做法：`Options` 加 `batchDepth` + `runBatch(Runnable)`，批量期间两个共享任务只置脏标记，
+结束时各跑一次。`applySnapshot()` 内部自己 `runBatch`（调用方不可能忘）。
+`resetOptions()` 也顺手包了（`/uhc reset` 原来有同样的浪费），
+顺带修正了原先「第一个选项 reset 时就重发配置书、其余选项还没 reset」的时序问题。
+
+### 值校验：`OptionType.validateStringValue`
+
+`setStringValue` **没有任何失败信号** —— `EnumType` 查不到就静默保持旧值，
+`NumbericType.setValue` 越界是**截断**而不是拒绝；`BooleanType` 更是把任何不认识的
+字符串一律当 false（一个拼写错误就把开关悄悄关掉）。所以新增
+`OptionType.validateStringValue(raw)` → 返回 `null` 或一句中文原因，预载器在**应用之前**
+逐项调用它。4 个类型各自实现（整数/浮点越界、布尔白名单、枚举候选值）。
+
+实测（T6 隔离实例，手改的预设）：
+```
+gameMode=Nope      → 只能取 普通 单人 Boss 隐身 小天才模式 国王 猎人 幽灵猎人
+teamCount=99       → 超出范围 2~8
+friendlyFire=maybe → 只接受 开启 / 关闭
+chestFrequency=99  → 超出范围 0.0~10.0
+→ 未应用任何更改
+```
+
+### 生效时机三档提示（必须有）
+
+`load` 之后只提示「已应用」是不够的 —— 管理员会以为功能坏了。按选项的**读取点**分三档：
+
+| 档 | 判据 | 选项 |
+|---|---|---|
+| 需要 `/uhc regen`（会删世界） | `needToSave()` ∪ `{levelType, disableOceanBiomes, battleType}` | 9 个 |
+| 需要重启服务器 | 只在 `onServerInited()` 读一次的 `netherPregenerate` / `pregenerateOnStart` | 2 个 |
+| 下一局开始生效 | 其余 | 全部 |
+
+判据集中在 `Options.affectsWorldGeneration(id)` / `affectsServerStart(id)`，
+`needToSave()` 那 6 个是**复用现有标记**而不是再抄一份名单。
+`borderStart` 单独加了一句提示：它本身下一局生效，但**预生成范围按 `borderStart/32`
+算且只在启动时取一次**，想按新值铺满需要重启或 regen。
+
+### 安全
+
+预设名是**文件名**，所以 `[A-Za-z0-9_-]{1,32}`，拒绝 `.` `/` `\` 空白。
+校验放在 `OptionsPreset.checkName` 里而不是命令层，命令层无法绕过。
+实测 `a.b` 与 `"../../evil"` 都被拒。
+
+### 实测（T6 隔离实例，`pregenerateOnStart=false`，32 项配置）
+
+```
+save base                → 已保存预设 base：32 项 · 普通 / 普通 / 默认 / 4 队
+borderEnd +5×10、teamCount -1
+preset list              → base 不再标 *
+preset diff base         → 2 项不同，30 项相同（队伍数量 3 → 4、边界终点 250 → 200）
+preset load base         → 2 项已更新，30 项未变
+preset list              → base 标上 *
+preset save base         → 拒绝，提示 overwrite
+```
+`uhc.properties` 事后核对：`borderEnd=200`、`teamCount=4`（批量落盘确实在结束时执行了）。
+
+**手改预设的两个边界用例**：
+- 含非法值 → 整体拒绝 + 4 条原因（见上）。
+- 部分预设 `good.properties`（只 4 个键，其中 `weather=雷暴` 写成**原始 UTF-8**）
+  → 4 项应用、其余 28 项保持当前值并列出；`weather=雷暴` 解析成功，
+  回写 `uhc.properties` 时变成 `\u96F7\u66B4`。
+  **读取用 `InputStreamReader(UTF_8)`、写入用 `OutputStream`** 是这套组合的关键：
+  自写文件是纯 ASCII，手改文件也能直接放中文（否则按 ISO-8859-1 读会乱码）。
+
+### 顺带发现（未修，属既有行为）
+
+`OptionType.getDisplayString` 的枚举分支是按**枚举常量名**（PEACEFUL/EASY/NORMAL/HARD）
+匹配的，没有判断枚举类，所以 `Weather.NORMAL` 显示成「普通」而不是它 `toString()` 的「默认」。
+**故意不改**：改了会让已存盘/已存预设里的 `weather=普通` 解析失败（静默保持旧值），
+是个有迁移风险的外观问题。预设的读写是自洽的（`getStringValue()` 的输出一定能被
+`validateStringValue` 接受），所以不影响本功能。

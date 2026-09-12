@@ -4,8 +4,12 @@
 
 package me.fallenbreath.tcuhc.options;
 
+import com.google.common.collect.ImmutableSet;
+
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.util.Locale;
+import java.util.Set;
 
 public abstract class OptionType {
 	
@@ -36,6 +40,14 @@ public abstract class OptionType {
 	public abstract void setStringValue(String nvalue);
 	public Object getValue() { return value; }
 	public String getStringValue() { return getDisplayString(getValue()); }
+	
+	/**
+	 * Explains why {@link #setStringValue} would not take this raw value, or returns null when it
+	 * would. Needed by the preset loader, because setStringValue has no failure signal of its own -
+	 * EnumType quietly keeps the old value when the lookup misses, and NumbericType clamps an out
+	 * of range value instead of rejecting it, so both would otherwise look like a success.
+	 */
+	public String validateStringValue(String rawValue) { return null; }
 	
 	@Override
 	public String toString() {
@@ -70,6 +82,14 @@ public abstract class OptionType {
 		@Override public void applyDec() { value = Math.max(min, (int) value - step); }
 		@Override public void setValue(Object nvalue) { value = Math.min(max, Math.max(min, (int) nvalue)); }
 		@Override public void setStringValue(String nvalue) { setValue(Integer.parseInt(nvalue)); }
+		@Override public String validateStringValue(String rawValue) {
+			try {
+				int parsed = Integer.parseInt(rawValue);
+				return parsed < min || parsed > max ? "超出范围 " + min + "~" + max : null;
+			} catch (NumberFormatException e) {
+				return "不是整数";
+			}
+		}
 		
 	}
 	
@@ -83,10 +103,23 @@ public abstract class OptionType {
 		@Override public void applyDec() { value = Math.max(min, (float) value - step); }
 		@Override public void setValue(Object nvalue) { value = Math.min(max, Math.max(min, (float) nvalue)); }
 		@Override public void setStringValue(String nvalue) { setValue(Float.parseFloat(nvalue)); }
+		@Override public String validateStringValue(String rawValue) {
+			try {
+				float parsed = Float.parseFloat(rawValue);
+				return parsed < min || parsed > max ? "超出范围 " + min + "~" + max : null;
+			} catch (NumberFormatException e) {
+				return "不是数字";
+			}
+		}
 		
 	}
 	
 	public static class BooleanType extends OptionType {
+		
+		/** Exactly the tokens {@link #setStringValue} recognises, in its own spelling. */
+		private static final Set<String> TOKENS = ImmutableSet.of(
+				"true", "false", "开启", "关闭", "开", "关", "是", "否"
+		);
 		
 		public BooleanType() {
 			value = false;
@@ -98,6 +131,10 @@ public abstract class OptionType {
 		@Override public void setValue(Object nvalue) { value = (boolean) nvalue; }
 		@Override public void setStringValue(String nvalue) {
 			setValue("true".equalsIgnoreCase(nvalue) || "开启".equals(nvalue) || "开".equals(nvalue) || "是".equals(nvalue));
+		}
+		@Override public String validateStringValue(String rawValue) {
+			// Anything else silently becomes false, which is how a typo turns a switch off unnoticed.
+			return TOKENS.contains(rawValue.toLowerCase(Locale.ROOT)) ? null : "只接受 开启 / 关闭";
 		}
 		
 	}
@@ -161,6 +198,16 @@ public abstract class OptionType {
 		}
 		@Override public Object getValue() { return enums[(int) value]; }
 		@Override public void setStringValue(String nvalue) { setValue(parseEnumValue(nvalue)); }
+		@Override public String validateStringValue(String rawValue) {
+			if (parseEnumValue(rawValue) != null) {
+				return null;
+			}
+			StringBuilder accepted = new StringBuilder();
+			for (Object enumValue : enums) {
+				accepted.append(getDisplayString(enumValue)).append(' ');
+			}
+			return "只能取 " + accepted.toString().trim();
+		}
 		
 	}
 	

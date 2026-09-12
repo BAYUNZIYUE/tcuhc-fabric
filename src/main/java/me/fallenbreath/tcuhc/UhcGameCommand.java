@@ -5,6 +5,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import me.fallenbreath.tcuhc.options.Option;
 import me.fallenbreath.tcuhc.options.Options;
+import me.fallenbreath.tcuhc.options.OptionsPreset;
 import me.fallenbreath.tcuhc.task.TaskOnce;
 import me.fallenbreath.tcuhc.util.PlayerItems;
 import me.fallenbreath.tcuhc.util.Position;
@@ -31,10 +32,15 @@ import net.minecraft.world.gen.chunk.ChunkGenerator;
 import net.minecraft.world.gen.chunk.NoiseChunkGenerator;
 import net.minecraft.world.gen.noise.NoiseRouter;
 
+import java.io.File;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import static com.mojang.brigadier.arguments.IntegerArgumentType.getInteger;
@@ -188,6 +194,51 @@ public class UhcGameCommand
 										)
 								)
 						)
+				).
+				then(literal("preset").
+						requires(UhcGameCommand::isOp).
+						executes(c -> presetList(c.getSource())).
+						then(literal("list").
+								executes(c -> presetList(c.getSource()))
+						).
+						then(literal("save").
+								then(argument("name", string()).
+										executes(c -> presetSave(c.getSource(), getString(c, "name"), false)).
+										then(literal("overwrite").
+												executes(c -> presetSave(c.getSource(), getString(c, "name"), true))
+										)
+								)
+						).
+						then(literal("load").
+								then(argument("name", string()).
+										suggests((c, b) -> suggestMatching(OptionsPreset.listNames(), b)).
+										executes(c -> presetLoad(c.getSource(), getString(c, "name"), false)).
+										then(literal("confirm").
+												executes(c -> presetLoad(c.getSource(), getString(c, "name"), true))
+										)
+								)
+						).
+						then(literal("show").
+								then(argument("name", string()).
+										suggests((c, b) -> suggestMatching(OptionsPreset.listNames(), b)).
+										executes(c -> presetShow(c.getSource(), getString(c, "name")))
+								)
+						).
+						then(literal("diff").
+								then(argument("name", string()).
+										suggests((c, b) -> suggestMatching(OptionsPreset.listNames(), b)).
+										executes(c -> presetDiff(c.getSource(), getString(c, "name")))
+								)
+						).
+						then(literal("delete").
+								then(argument("name", string()).
+										suggests((c, b) -> suggestMatching(OptionsPreset.listNames(), b)).
+										executes(c -> presetDelete(c.getSource(), getString(c, "name"), false)).
+										then(literal("confirm").
+												executes(c -> presetDelete(c.getSource(), getString(c, "name"), true))
+										)
+								)
+						)
 				);
 		dispatcher.register(rootNode);
 	}
@@ -281,6 +332,328 @@ public class UhcGameCommand
 		Options.instance.resetOptions(value == 1);
 		UhcGameManager.instance.getUhcPlayerManager().refreshConfigBook();
 		return 1;
+	}
+
+	// -----------------------------------------------------------------------------------------
+	// /uhc preset
+	// -----------------------------------------------------------------------------------------
+
+	/**
+	 * Which preset a confirmation was requested for. Stored by name rather than as a bare flag so
+	 * that `/uhc preset delete a` followed by `/uhc preset delete b confirm` cannot delete b.
+	 */
+	private static String presetDeletePending = null;
+	private static String presetLoadPending = null;
+
+	private static int presetList(ServerCommandSource sender)
+	{
+		List<OptionsPreset.PresetEntry> entries = OptionsPreset.list();
+		Map<String, String> current = Options.instance.snapshot();
+		// One line per preset, name then a two word label, with the legend folded into the header:
+		// a listing that wraps in chat is worse than one that leaves something out. The save time
+		// is still there, in /uhc preset show.
+		final String header = String.format("预设 %d 个 · %s/%s",
+				entries.size(), OptionsPreset.getDirectory().getName(),
+				entries.isEmpty() ? "" : " · * = 当前配置");
+		sender.sendFeedback(() -> Text.literal(header), false);
+		if (entries.isEmpty())
+		{
+			sender.sendFeedback(() -> Text.literal("  （空）用 /uhc preset save <名字> 把当前配置存下来"), false);
+			return 1;
+		}
+		for (OptionsPreset.PresetEntry entry : entries)
+		{
+			final String line = "  " + entry.name + "  " + entry.summary
+					+ (isIdenticalToCurrent(entry.name, current) ? "  *" : "");
+			sender.sendFeedback(() -> Text.literal(line), false);
+		}
+		return 1;
+	}
+
+	private static boolean isIdenticalToCurrent(String name, Map<String, String> current)
+	{
+		try
+		{
+			Map<String, String> values = OptionsPreset.read(name);
+			return values.size() == current.size()
+					&& values.entrySet().stream().allMatch(entry -> entry.getValue().equals(current.get(entry.getKey())));
+		}
+		catch (Exception e)
+		{
+			return false;
+		}
+	}
+
+	private static int presetSave(ServerCommandSource sender, String name, boolean overwrite)
+	{
+		try
+		{
+			OptionsPreset.checkName(name);
+		}
+		catch (IllegalArgumentException e)
+		{
+			sender.sendFeedback(() -> Text.literal(e.getMessage()), false);
+			return 0;
+		}
+		if (OptionsPreset.exists(name) && !overwrite)
+		{
+			sender.sendFeedback(() -> Text.literal("预设 " + name + " 已存在，要覆盖请用 /uhc preset save " + name + " overwrite"), false);
+			return 0;
+		}
+		Map<String, String> values = Options.instance.snapshot();
+		try
+		{
+			OptionsPreset.save(name, values);
+		}
+		catch (IOException e)
+		{
+			sender.sendFeedback(() -> Text.literal("保存失败：" + e.getMessage()), false);
+			return 0;
+		}
+		sender.sendFeedback(() -> Text.literal("已保存预设 " + name + "：" + values.size() + " 项 · " + OptionsPreset.summarize(values)), false);
+		File file = new File(OptionsPreset.getDirectory(), name + ".properties");
+		sender.sendFeedback(() -> Text.literal("  " + file.getAbsolutePath()), false);
+		return 1;
+	}
+
+	private static int presetShow(ServerCommandSource sender, String name)
+	{
+		Map<String, String> values;
+		try
+		{
+			values = OptionsPreset.read(name);
+		}
+		catch (Exception e)
+		{
+			sender.sendFeedback(() -> Text.literal("读取预设失败：" + e.getMessage()), false);
+			return 0;
+		}
+
+		sender.sendFeedback(() -> Text.literal("预设 " + name + "（" + OptionsPreset.describeSavedAt(name) + " 保存）："
+				+ values.size() + " 项 · " + OptionsPreset.summarize(values)), false);
+		for (Map.Entry<String, String> entry : values.entrySet())
+		{
+			Optional<Option> found = Options.instance.getOption(entry.getKey());
+			if (!found.isPresent())
+			{
+				final String unknown = "  " + entry.getKey() + " = " + entry.getValue() + "  （本版本没有这一项）";
+				sender.sendFeedback(() -> Text.literal(unknown), false);
+				continue;
+			}
+			Option option = found.get();
+			final String line = "  " + option.getName() + "：" + entry.getValue()
+					+ (option.getStringValue().equals(entry.getValue()) ? "" : "   （当前 " + option.getStringValue() + "）");
+			sender.sendFeedback(() -> Text.literal(line), false);
+		}
+		return 1;
+	}
+
+	private static int presetDiff(ServerCommandSource sender, String name)
+	{
+		Map<String, String> values;
+		try
+		{
+			values = OptionsPreset.read(name);
+		}
+		catch (Exception e)
+		{
+			sender.sendFeedback(() -> Text.literal("读取预设失败：" + e.getMessage()), false);
+			return 0;
+		}
+
+		List<String> differences = new ArrayList<>();
+		List<String> changed = new ArrayList<>();
+		List<String> unknown = new ArrayList<>();
+		int same = 0;
+		for (Map.Entry<String, String> entry : values.entrySet())
+		{
+			Optional<Option> found = Options.instance.getOption(entry.getKey());
+			if (!found.isPresent())
+			{
+				unknown.add(entry.getKey());
+				continue;
+			}
+			Option option = found.get();
+			String current = option.getStringValue();
+			if (current.equals(entry.getValue()))
+			{
+				same++;
+				continue;
+			}
+			differences.add("  " + option.getName() + "：" + current + " → " + entry.getValue());
+			changed.add(entry.getKey());
+		}
+		List<String> missing = Options.instance.getOptionsInOrder().stream()
+				.map(Option::getId)
+				.filter(id -> !values.containsKey(id))
+				.collect(Collectors.toList());
+
+		final int sameCount = same;
+		final int differingCount = differences.size();
+		sender.sendFeedback(() -> Text.literal("与预设 " + name + " 的差异：" + differingCount + " 项不同，" + sameCount + " 项相同"
+				+ (missing.isEmpty() ? "" : "，预设未包含 " + missing.size() + " 项")), false);
+		if (differences.isEmpty())
+		{
+			sender.sendFeedback(() -> Text.literal("  当前配置与该预设完全一致。"), false);
+		}
+		differences.forEach(line -> sender.sendFeedback(() -> Text.literal(line), false));
+		if (!unknown.isEmpty())
+		{
+			final String list = String.join("、", unknown);
+			sender.sendFeedback(() -> Text.literal("  预设里有本版本没有的项，加载时会跳过：" + list), false);
+		}
+		if (!changed.isEmpty())
+		{
+			sender.sendFeedback(() -> Text.literal("  若加载："), false);
+			sendActivationNotes(sender, changed);
+		}
+		return 1;
+	}
+
+	private static int presetLoad(ServerCommandSource sender, String name, boolean confirmed)
+	{
+		Map<String, String> values;
+		try
+		{
+			values = OptionsPreset.read(name);
+		}
+		catch (Exception e)
+		{
+			sender.sendFeedback(() -> Text.literal("读取预设失败：" + e.getMessage()), false);
+			return 0;
+		}
+
+		// Applying hits taskReselectTeam, which drops every player's team choice, hands out a fresh
+		// config book and makes them invulnerable. That interrupts a game in progress, so it asks
+		// first while one is running.
+		if (UhcGameManager.instance.isGamePlaying() && !(confirmed && name.equals(presetLoadPending)))
+		{
+			presetLoadPending = name;
+			sender.sendFeedback(() -> Text.literal(Formatting.YELLOW + "对局正在进行中。加载预设会清空所有玩家的队伍选择、重新发放配置书，并让玩家变为无敌。"), false);
+			sender.sendFeedback(() -> Text.literal(Formatting.YELLOW + "确认请再次输入 /uhc preset load " + name + " confirm"), false);
+			return 1;
+		}
+		presetLoadPending = null;
+
+		Options.SnapshotResult result = Options.instance.applySnapshot(values);
+		if (result.hasErrors())
+		{
+			// Nothing was applied on purpose: half a preset is harder to reason about than none.
+			sender.sendFeedback(() -> Text.literal(Formatting.RED + "未应用任何更改 —— 预设里有 " + result.invalid.size() + " 个值无法使用："), false);
+			result.invalid.forEach(bad -> sender.sendFeedback(() -> Text.literal(Formatting.RED + "  " + bad), false));
+			return 0;
+		}
+
+		UhcGameManager.instance.getUhcPlayerManager().refreshConfigBook();
+		sender.sendFeedback(() -> Text.literal("已应用预设 " + name + "：" + result.applied.size() + " 项已更新，" + result.unchanged.size() + " 项未变。"), false);
+		if (!result.unknown.isEmpty())
+		{
+			final String list = String.join("、", result.unknown);
+			sender.sendFeedback(() -> Text.literal("  已跳过本版本没有的项：" + list), false);
+		}
+		if (!result.missing.isEmpty())
+		{
+			final String list = String.join("、", describeIds(result.missing));
+			sender.sendFeedback(() -> Text.literal("  预设未包含的 " + result.missing.size() + " 项保持当前值：" + list), false);
+		}
+		if (!result.applied.isEmpty())
+		{
+			sendActivationNotes(sender, result.applied);
+		}
+		return 1;
+	}
+
+	private static int presetDelete(ServerCommandSource sender, String name, boolean confirmed)
+	{
+		try
+		{
+			OptionsPreset.checkName(name);
+		}
+		catch (IllegalArgumentException e)
+		{
+			sender.sendFeedback(() -> Text.literal(e.getMessage()), false);
+			return 0;
+		}
+		if (!OptionsPreset.exists(name))
+		{
+			sender.sendFeedback(() -> Text.literal("预设 " + name + " 不存在"), false);
+			return 0;
+		}
+		if (!confirmed || !name.equals(presetDeletePending))
+		{
+			presetDeletePending = name;
+			sender.sendFeedback(() -> Text.literal(Formatting.YELLOW + "确认删除预设 " + name + "？此操作不可撤销。"), false);
+			sender.sendFeedback(() -> Text.literal(Formatting.YELLOW + "确认请再次输入 /uhc preset delete " + name + " confirm"), false);
+			return 1;
+		}
+		presetDeletePending = null;
+		try
+		{
+			OptionsPreset.delete(name);
+		}
+		catch (IOException e)
+		{
+			sender.sendFeedback(() -> Text.literal("删除失败：" + e.getMessage()), false);
+			return 0;
+		}
+		sender.sendFeedback(() -> Text.literal("已删除预设 " + name), false);
+		return 1;
+	}
+
+	/** Option ids to their displayed names, for messages. Falls back to the raw id when unknown. */
+	private static List<String> describeIds(Collection<String> ids)
+	{
+		return ids.stream()
+				.map(id -> Options.instance.getOption(id).map(Option::getName).orElse(id))
+				.collect(Collectors.toList());
+	}
+
+	/**
+	 * Spells out when the options that just changed actually take effect. Without this the natural
+	 * reading of a freshly loaded preset that appears to do nothing is "the load failed", when part
+	 * of it is really waiting for a world rebuild or a server restart.
+	 */
+	private static void sendActivationNotes(ServerCommandSource sender, Collection<String> changedIds)
+	{
+		List<String> worldGeneration = new ArrayList<>();
+		List<String> serverStart = new ArrayList<>();
+		int nextGame = 0;
+		for (String id : changedIds)
+		{
+			if (Options.affectsWorldGeneration(id))
+			{
+				worldGeneration.add(id);
+			}
+			else if (Options.affectsServerStart(id))
+			{
+				serverStart.add(id);
+			}
+			else
+			{
+				nextGame++;
+			}
+		}
+
+		if (!worldGeneration.isEmpty())
+		{
+			final String list = String.join("、", describeIds(worldGeneration));
+			sender.sendFeedback(() -> Text.literal(Formatting.YELLOW + "⚠ 需要 /uhc regen 才生效（改了世界生成）：" + list), false);
+			sender.sendFeedback(() -> Text.literal(Formatting.YELLOW + "   注意 /uhc regen 会删除当前世界。"), false);
+		}
+		if (!serverStart.isEmpty())
+		{
+			final String list = String.join("、", describeIds(serverStart));
+			sender.sendFeedback(() -> Text.literal(Formatting.AQUA + "ℹ 需要重启服务器才生效：" + list), false);
+		}
+		if (nextGame > 0)
+		{
+			final int nextGameCount = nextGame;
+			sender.sendFeedback(() -> Text.literal(Formatting.AQUA + "ℹ 其余 " + nextGameCount + " 项在下一局开始时生效。"), false);
+		}
+		if (changedIds.contains("borderStart"))
+		{
+			sender.sendFeedback(() -> Text.literal(Formatting.AQUA + "ℹ 初始边界下一局生效；但预生成范围按 borderStart/32 算，只在启动时取一次。"), false);
+		}
 	}
 
 	private static int openConfigPage(ServerCommandSource sender, int page) throws CommandSyntaxException
