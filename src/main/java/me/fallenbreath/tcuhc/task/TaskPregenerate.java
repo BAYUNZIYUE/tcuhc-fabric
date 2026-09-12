@@ -8,6 +8,7 @@ import com.google.common.collect.Lists;
 import me.fallenbreath.tcuhc.mixins.task.AbstractChunkHolderAccessor;
 import me.fallenbreath.tcuhc.mixins.task.ServerChunkLoadingManagerAccessor;
 import me.fallenbreath.tcuhc.UhcGameManager;
+import me.fallenbreath.tcuhc.options.Options;
 import net.minecraft.server.world.ChunkHolder;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.world.ChunkTicketType;
@@ -26,9 +27,17 @@ public class TaskPregenerate extends Task
 {
 	public static final ChunkTicketType<ChunkPos> PRE_GENERATE = ChunkTicketType.create("pre_generate", Comparator.comparingLong(ChunkPos::toLong));
 
-	// Real servers are more sensitive to chunk pipeline pressure than local dev runs, so keep pregeneration conservative.
-	private static final int PARALLELISM_LIMIT = 2;
-	private static final int ENQUEUE_THRESHOLD = Math.max(1, PARALLELISM_LIMIT / 2);
+	/**
+	 * How many chunks are in flight at once. Real servers are far more sensitive to chunk pipeline
+	 * pressure than local dev runs, so the default stays at the conservative 2 this was hard-coded
+	 * to. It is an option rather than a constant because "world generation is still pretty slow" is
+	 * a real complaint on machines that can afford more, and the right value depends entirely on the
+	 * host.
+	 *
+	 * <p>Read once per task rather than per tick: changing it mid-pregeneration would resize the
+	 * in-flight window underneath {@link #queuedCount} bookkeeping.
+	 */
+	private static final int DEFAULT_PARALLELISM = 2;
 	private static final int RETRY_DELAY_TICKS = 20;
 	private static final int RETRY_LOG_INTERVAL = 20;
 	/**
@@ -63,6 +72,10 @@ public class TaskPregenerate extends Task
 	private final AtomicInteger failedChunkAmount = new AtomicInteger(0);
 	private final AtomicInteger queuedCount = new AtomicInteger(0);
 	private final Map<ChunkPos, PendingChunk> pendingChunks = new LinkedHashMap<>();
+	/** Snapshot of the pregenerateParallelism option, taken once when the task is created. */
+	private final int parallelismLimit;
+	/** Refill the in-flight window once it drains to this; half the limit, at least 1. */
+	private final int enqueueThreshold;
 	private boolean canceled;
 
 	private static class PendingChunk
@@ -101,9 +114,28 @@ public class TaskPregenerate extends Task
 			this.chunkToLoad = prioritizeSpawnChunks(allChunks, priorityPositions);
 		}
 		this.iterator = this.chunkToLoad.iterator();
+		this.parallelismLimit = resolveParallelism();
+		this.enqueueThreshold = Math.max(1, this.parallelismLimit / 2);
 		if (worldServer == UhcGameManager.instance.getOverWorld())
 		{
 			currentOverworldTask = this;
+		}
+	}
+
+	/** Reads the operator's parallelism setting, falling back to the safe default if unavailable. */
+	private static int resolveParallelism()
+	{
+		try
+		{
+			int configured = Options.instance.getIntegerOptionValue("pregenerateParallelism");
+			return configured > 0 ? configured : DEFAULT_PARALLELISM;
+		}
+		catch (RuntimeException e)
+		{
+			// Options are loaded long before any world exists, but never let a missing or
+			// malformed setting stop pregeneration from running at all.
+			UhcGameManager.LOG.warn("Could not read pregenerateParallelism, using {}", DEFAULT_PARALLELISM, e);
+			return DEFAULT_PARALLELISM;
 		}
 	}
 
@@ -126,7 +158,7 @@ public class TaskPregenerate extends Task
 
 	private void tryGenerateChunks()
 	{
-		int count = PARALLELISM_LIMIT - this.queuedCount.get();
+		int count = this.parallelismLimit - this.queuedCount.get();
 		if (count <= 0)
 		{
 			return;
@@ -246,7 +278,7 @@ public class TaskPregenerate extends Task
 			this.failedChunkAmount.incrementAndGet();
 		}
 		this.lastProgressTick = this.mcServer.getTicks();
-		if (this.queuedCount.get() <= ENQUEUE_THRESHOLD)
+		if (this.queuedCount.get() <= this.enqueueThreshold)
 		{
 			this.tryGenerateChunks();
 		}

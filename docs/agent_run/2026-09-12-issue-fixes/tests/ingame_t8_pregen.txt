@@ -1,0 +1,5 @@
+# T8 - pregeneration parallelism (issues 8, 9)
+# Read the current value, then raise it. Requires /uhc regen to take effect,
+# because parallelism is snapshotted when the pregeneration task is created.
+uhc option pregenerateParallelism set
+uhc

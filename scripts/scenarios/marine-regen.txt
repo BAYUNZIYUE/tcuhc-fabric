@@ -1,0 +1,6 @@
+# Switch to MARINE and regenerate terrain.
+# battleType lives in uhc.properties but terrain lives in the world folder,
+# so a regen is mandatory or you get old land terrain with marine rules.
+# /uhc regen needs confirming twice AND restarts the server via restart-server.sh
+uhc config
+uhc option battleType set

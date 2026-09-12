@@ -315,6 +315,11 @@ public abstract class MinecraftServerMixin
 		ChunkGeneratorSettings originalSettings = originalSettingsEntry.value();
 		NoiseRouter originalRouter = originalSettings.noiseRouter();
 
+		// Keep this even though the 1.2.7 note says replacing router.continents() cannot change the
+		// terrain shape (final_density and initial_density_without_jaggedness are inline copies of
+		// their own subtrees). It is not dead here: continents is still what the multi-noise
+		// sampler reads for biome placement, and pinning it to -1.0 is what keeps
+		// createMarineBiomeSource's continentalness ranges resolving to open-ocean entries.
 		ConstantDensityFunction deepOcean = new ConstantDensityFunction(-1.0);
 		SubmergedDensityFunction oceanFloor = new SubmergedDensityFunction();
 
@@ -579,44 +584,96 @@ public abstract class MinecraftServerMixin
 		}
 	}
 
+	/**
+	 * The MARINE sea floor: positive below {@link #floorHeight}, negative above it, so the rest of
+	 * the chunk pipeline reads it as ordinary ground.
+	 *
+	 * <p>Built on the same technique as {@link LandSurfaceDensityFunction}, for the same reasons.
+	 * It used to use {@link #valueNoise} over three axis-aligned octaves, which produced the
+	 * reported ocean-floor problems: smoothstep interpolation is flat at every lattice point and
+	 * piles the whole slope onto the cell mid-lines, so the floor came out as a quilt of
+	 * quadrilateral plateaus with straight edges running along the noise grid. Gradient noise has
+	 * its extrema between lattice points and no flat spots, the domain warp stops the octaves from
+	 * lining up, and rotating each octave keeps them off a shared lattice orientation.
+	 *
+	 * <p>Self-contained by necessity: a custom DensityFunction may not sample another density
+	 * function, because those only produce real values while the ChunkNoiseSampler drives the tree.
+	 */
 	private static class SubmergedDensityFunction implements DensityFunction.Base
 	{
-		private static final double CENTER_Y = 48.0;
-		private static final double AMPLITUDE = 23.0;
+		/**
+		 * Centre height and peak deviation of the sea floor. Sea level is 63, so the floor is
+		 * submerged almost everywhere but its highest peaks still breach the surface as small
+		 * islands - MARINE seeds oak logs and saplings in its bonus chests, so somewhere to plant
+		 * them is part of the mode.
+		 *
+		 * <p>These are not the old 48/23. Gradient noise summed over octaves is far more
+		 * concentrated around its mean than the old value-noise sum was, so keeping 48/23 would
+		 * have produced a floor that never breached the surface at all - measured at 0.000% island
+		 * coverage against the old 0.81%. 50/32 reproduces the old envelope
+		 * (max ~69, ~0.84% of the area above sea level) without reintroducing the faceting.
+		 */
+		private static final double CENTER_Y = 50.0;
+		private static final double AMPLITUDE = 32.0;
+		/** Half-thickness of the density ramp around the floor, in blocks. */
+		private static final double FLOOR_RAMP = 4.0;
+		/** Sum of the octave weights below; used to normalise them back to +/-1 before scaling. */
+		private static final double OCTAVE_WEIGHT_SUM = 1.0D + 0.5D + 0.25D + 0.145D + 0.08D;
+
+		private static double floorHeight(int blockX, int blockZ)
+		{
+			double x = blockX;
+			double z = blockZ;
+
+			double warpX = x + gradientNoise(x / 210.0D, z / 210.0D, 0x0CEA41L) * 48.0D;
+			double warpZ = z + gradientNoise(x / 210.0D + 5.7D, z / 210.0D - 3.1D, 0x0CEA42L) * 48.0D;
+
+			double h = 0.0D;
+			h += octave(warpX, warpZ, 1.0D / 190.0D, 1.0D, 0.0D, 0x0CEA01L) * 1.0D;
+			h += octave(warpX, warpZ, 1.0D / 86.0D, 0.8253356D, 0.5646425D, 0x0CEA02L) * 0.5D;
+			h += octave(warpX, warpZ, 1.0D / 39.0D, 0.2674988D, 0.9635582D, 0x0CEA03L) * 0.25D;
+			h += octave(warpX, warpZ, 1.0D / 17.0D, -0.5048461D, 0.8632094D, 0x0CEA04L) * 0.145D;
+			h += octave(warpX, warpZ, 1.0D / 6.0D, 0.6967067D, -0.7173561D, 0x0CEA05L) * 0.08D;
+
+			return CENTER_Y + h / OCTAVE_WEIGHT_SUM * AMPLITUDE;
+		}
+
+		/** One noise octave, rotated so that the octaves do not share a lattice orientation. */
+		private static double octave(double x, double z, double inverseScale, double cos, double sin, long seed)
+		{
+			double rx = (x * cos - z * sin) * inverseScale;
+			double rz = (x * sin + z * cos) * inverseScale;
+			return gradientNoise(rx, rz, seed);
+		}
 
 		@Override
 		public double sample(DensityFunction.NoisePos pos)
 		{
-			int x = pos.blockX();
-			int y = pos.blockY();
-			int z = pos.blockZ();
-
-			double floorY = CENTER_Y + terrainHeight(x, z);
-			double diff = floorY - y;
-			if (diff > 4.0) return 1.0;
-			if (diff < -4.0) return -1.0;
-			return diff / 4.0;
+			double diff = floorHeight(pos.blockX(), pos.blockZ()) - pos.blockY();
+			if (diff > FLOOR_RAMP)
+			{
+				return 1.0D;
+			}
+			if (diff < -FLOOR_RAMP)
+			{
+				return -1.0D;
+			}
+			return diff / FLOOR_RAMP;
 		}
 
-		private static double terrainHeight(int x, int z)
-		{
-			double h = 0;
-			h += valueNoise(x / 80.0, z / 80.0, 0x5DEECE66DL) * 12.0;
-			h += valueNoise(x / 40.0, z / 40.0, 0xBEEFDEADL) * 4.0;
-			h += valueNoise(x / 20.0, z / 20.0, 0xCAFEBABEL) * 2.0;
-			return h * AMPLITUDE / 18.0;
-		}
-
+		// These must bound sample() honestly. They used to declare -0.5/0.5 while sample() ranged
+		// over [-1, 1]; the ChunkNoiseSampler uses the declared bounds to skip interpolation cells,
+		// so under-declaring them lets it discard cells that actually contained terrain.
 		@Override
 		public double minValue()
 		{
-			return -0.5;
+			return -1.0D;
 		}
 
 		@Override
 		public double maxValue()
 		{
-			return 0.5;
+			return 1.0D;
 		}
 
 		@Override

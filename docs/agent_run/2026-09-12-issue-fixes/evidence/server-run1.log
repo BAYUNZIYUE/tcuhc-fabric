@@ -1,0 +1,39 @@
+[09:53:11] [main/INFO] (TC UHC) level-type from uhc.properties: option=默认, server.properties='minecraft:normal' -> 'default'
+[09:53:11] [main/WARN] (TC UHC) Deleting .\world\. for UHC world regenerate
+[09:53:13] [main/WARN] (TC UHC) Generating new uhc world data
+[09:53:13] [Server thread/INFO] (TC UHC) Overworld biome source rebuilt: 20 ocean entries replaced, 0 entries skipped, 7593 kept
+[09:53:13] [Server thread/INFO] (TC UHC) Landified terrain installed: ocean edge -0.19, blend width 0.15, replacement surface 78.0 +/- 14 blocks
+[09:53:13] [Server thread/INFO] (TC UHC) Overworld ocean biomes replaced by same-temperature land biomes (disableOceanBiomes)
+[09:53:18] [Server thread/INFO] (TC UHC) Set spawn platform height to y162
+[09:53:18] [Server thread/INFO] (Minecraft) Done (5.286s)! For help, type "help"
+[09:53:18] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/dark_oak_leaves -> REPLACED apple pool (pool index 2, 3 pools now)
+[09:53:18] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/mangrove_leaves -> APPENDED apple pool (pool index -1, 2 pools now)
+[09:53:18] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/jungle_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:53:18] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/birch_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:53:18] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/azalea_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:53:18] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/spruce_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:53:18] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/acacia_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:53:18] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/cherry_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:53:18] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/flowering_azalea_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:53:18] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/oak_leaves -> REPLACED apple pool (pool index 2, 3 pools now)
+[09:53:18] [Server thread/INFO] (TC UHC) UHC loot injection done: 10 leaves tables, 3 ore tables
+[09:53:23] [Server thread/INFO] (TC UHC) 118/841 14.03% 的 overworld 区块已处理（失败 0）。
+[09:53:25] [Worker-Main-12/INFO] (TC UHC) Merchant feature placed 4 merchants so far; latest at BlockPos{x=-123, y=90, z=134}
+[09:53:28] [Server thread/INFO] (TC UHC) 218/841 25.92% 的 overworld 区块已处理（失败 0）。
+[09:53:30] [Server thread/INFO] (TC UHC) Bonus chest feature placed 16 chests so far; latest at BlockPos{x=-130, y=75, z=-23}
+[09:53:33] [Server thread/INFO] (TC UHC) 298/841 35.43% 的 overworld 区块已处理（失败 0）。
+[09:53:36] [Worker-Main-11/INFO] (TC UHC) Merchant feature placed 8 merchants so far; latest at BlockPos{x=73, y=66, z=-177}
+[09:53:38] [Server thread/INFO] (TC UHC) 398/841 47.32% 的 overworld 区块已处理（失败 0）。
+[09:53:39] [Worker-Main-21/INFO] (TC UHC) Merchant feature placed 12 merchants so far; latest at BlockPos{x=200, y=89, z=129}
+[09:53:41] [Server thread/INFO] (TC UHC) Bonus chest feature placed 32 chests so far; latest at BlockPos{x=-166, y=65, z=83}
+[09:53:43] [Server thread/INFO] (TC UHC) 518/841 61.59% 的 overworld 区块已处理（失败 0）。
+[09:53:47] [Server thread/WARN] (TC UHC) Pregenerate re-queued chunk [-8, -12] in overworld (attempt 1, holderPresent=true, actualStatus=minecraft:initialize_light)
+[09:53:48] [Server thread/INFO] (TC UHC) 559/841 66.47% 的 overworld 区块已处理（失败 0）。
+[09:53:48] [Server thread/INFO] (TC UHC) overworld 区块生成进度：66.47%，预计剩余 0分15秒
+[09:53:50] [Server thread/INFO] (TC UHC) Bonus chest feature placed 48 chests so far; latest at BlockPos{x=-46, y=59, z=-196}
+[09:53:53] [Server thread/WARN] (TC UHC) Pregenerate re-queued chunk [-13, 9] in overworld (attempt 1, holderPresent=true, actualStatus=minecraft:initialize_light)
+[09:53:53] [Server thread/INFO] (TC UHC) 675/841 80.26% 的 overworld 区块已处理（失败 0）。
+[09:53:58] [Server thread/INFO] (TC UHC) 755/841 89.77% 的 overworld 区块已处理（失败 0）。
+[09:54:00] [Worker-Main-11/INFO] (TC UHC) Merchant feature placed 16 merchants so far; latest at BlockPos{x=195, y=69, z=267}
+[09:54:01] [Server thread/INFO] (TC UHC) Bonus chest feature placed 64 chests so far; latest at BlockPos{x=227, y=66, z=-178}
+[09:54:01] [Server thread/INFO] (TC UHC) overworld 预生成完成，耗时 0分43秒

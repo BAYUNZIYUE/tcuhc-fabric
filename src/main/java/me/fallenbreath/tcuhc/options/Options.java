@@ -45,7 +45,7 @@ public class Options {
 	
 	/** Options read once in {@link UhcGameManager#onServerInited()}, i.e. only on a server start. */
 	private static final Set<String> SERVER_START_OPTIONS = ImmutableSet.of(
-			"netherPregenerate", "pregenerateOnStart"
+			"netherPregenerate", "pregenerateOnStart", "pregenerateParallelism"
 	);
 	
 	private final Map<String, Option> configOptions = Maps.newHashMap();
@@ -139,6 +139,7 @@ public class Options {
 		addOption(new Option("mobCount", "怪物数量", new OptionType.IntegerType(10, 300, 10), 70).setNeedToSave().setDescription("调整世界中的怪物数量。"));
 		addOption(new Option("netherPregenerate", "地狱预生成", new OptionType.BooleanType(), true).setDescription("是否在预生成阶段一并预生成地狱。关闭可明显缩短预生成总耗时，地狱区块将在玩家进入时按需生成。"));
 		addOption(new Option("pregenerateOnStart", "启动时预生成", new OptionType.BooleanType(), true).setDescription("服务器启动后是否自动预生成世界。关闭后世界创建完即视为就绪，需要预生成时用 /uhc regen 重新生成。"));
+		addOption(new Option("pregenerateParallelism", "预生成并行度", new OptionType.IntegerType(1, 16, 1), 2).setDescription("预生成时同时处理的区块数。调高可加快预生成，但会占用更多线程并可能让服务器变卡；默认 2 是对真实服务器最稳妥的取值。"));
 
 		loadPropertiesFile();
 		savePropertiesFile();

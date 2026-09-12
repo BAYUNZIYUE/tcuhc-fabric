@@ -1,0 +1,20 @@
+[09:55:33] [main/INFO] (TC UHC) level-type from uhc.properties: option=默认, server.properties='minecraft:normal' -> 'default'
+[09:55:35] [main/INFO] (TC UHC) Loaded uhc world data
+[09:55:35] [Server thread/INFO] (TC UHC) MARINE overworld generator swapped to NoiseChunkGenerator with ocean-family multi-noise biomes
+[09:55:36] [Server thread/INFO] (TC UHC) Set spawn platform height to y162
+[09:55:36] [Server thread/WARN] (TC UHC) World terrain was generated with [battleType=NORMAL,levelType=DEFAULT,disableOceanBiomes=true] but the current settings are [battleType=MARINE,levelType=DEFAULT,disableOceanBiomes=true]
+[09:55:36] [Server thread/INFO] (TC UHC) §c警告：当前地形是用 [battleType=NORMAL,levelType=DEFAULT,disableOceanBiomes=true] 生成的，
+[09:55:36] [Server thread/INFO] (TC UHC) §c但现在的设置是 [battleType=MARINE,levelType=DEFAULT,disableOceanBiomes=true]。
+[09:55:36] [Server thread/INFO] (TC UHC) §c地形不会自动改变，请执行 /uhc regen 重新生成地形。
+[09:55:36] [Server thread/INFO] (Minecraft) Done (0.803s)! For help, type "help"
+[09:55:36] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/dark_oak_leaves -> REPLACED apple pool (pool index 2, 3 pools now)
+[09:55:36] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/mangrove_leaves -> APPENDED apple pool (pool index -1, 2 pools now)
+[09:55:36] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/jungle_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:55:36] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/birch_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:55:36] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/azalea_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:55:36] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/spruce_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:55:36] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/acacia_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:55:36] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/cherry_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:55:36] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/flowering_azalea_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:55:36] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/oak_leaves -> REPLACED apple pool (pool index 2, 3 pools now)
+[09:55:36] [Server thread/INFO] (TC UHC) UHC loot injection done: 10 leaves tables, 3 ore tables

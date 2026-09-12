@@ -123,8 +123,15 @@ public class UhcGameCommand
 				).
 				then(literal("reset").
 						requires(UhcGameCommand::isOp).
+						executes(c -> explainReset(c.getSource())).
+						then(literal("gameplay").
+								executes(c -> executeReset(c.getSource(), false))
+						).
+						then(literal("generation").
+								executes(c -> executeReset(c.getSource(), true))
+						).
 						then(argument("value", integer(0, 1)).
-								executes(c -> executeReset(c.getSource(), getInteger(c, "value")))
+								executes(c -> executeReset(c.getSource(), getInteger(c, "value") == 1))
 						)
 				).
 				then(literal("regen").requires(UhcGameCommand::isOp).executes(c -> executeRegen(c.getSource()))).
@@ -327,10 +334,26 @@ public class UhcGameCommand
 		return 1;
 	}
 
-	private static int executeReset(ServerCommandSource sender, int value)
+	private static int explainReset(ServerCommandSource sender)
 	{
-		Options.instance.resetOptions(value == 1);
+		sender.sendFeedback(() -> Text.literal("/uhc reset 会把设置恢复为模组默认值："), false);
+		sender.sendFeedback(() -> Text.literal("  /uhc reset gameplay - 重置玩法、时间和队伍设置"), false);
+		sender.sendFeedback(() -> Text.literal("  /uhc reset generation - 重置矿物、宝箱、商人和怪物生成频率（需要 /uhc regen）"), false);
+		return 1;
+	}
+
+	private static int executeReset(ServerCommandSource sender, boolean generation)
+	{
+		Options.instance.resetOptions(generation);
 		UhcGameManager.instance.getUhcPlayerManager().refreshConfigBook();
+		if (generation)
+		{
+			sender.sendFeedback(() -> Text.literal(Formatting.GOLD + "矿物、宝箱、商人和怪物生成频率已恢复为默认值。执行 /uhc regen 后生效。"), false);
+		}
+		else
+		{
+			sender.sendFeedback(() -> Text.literal(Formatting.GOLD + "玩法、时间和队伍设置已恢复为默认值。"), false);
+		}
 		return 1;
 	}
 
@@ -762,7 +785,12 @@ public class UhcGameCommand
 
 	private static int executeStop(ServerCommandSource sender)
 	{
-		UhcGameManager.instance.endGame();
+		if (!UhcGameManager.instance.stopGameByOperator())
+		{
+			sender.sendFeedback(() -> Text.literal(Formatting.RED + "现在没有正在进行的游戏，无需结束。"), false);
+			return 0;
+		}
+		sender.sendFeedback(() -> Text.literal(Formatting.GOLD + "本局游戏已结束。使用 /uhc config 返回大厅配置下一局。"), false);
 		return 1;
 	}
 
@@ -960,6 +988,21 @@ public class UhcGameCommand
 	 * water depth. Used to verify that the former ocean basins are both drained and broken up
 	 * into hills rather than left as one flat puddle.
 	 */
+	/**
+	 * The trailing segment of a class name, derived from {@link Class#getName()}.
+	 *
+	 * <p>Deliberately not {@link Class#getSimpleName()}: that reads the {@code InnerClasses}
+	 * attribute, and classes nested inside a mixin are merged into the target under a generated
+	 * name whose attribute no longer agrees, which makes {@code getSimpleName()} throw
+	 * {@link IncompatibleClassChangeError}.
+	 */
+	private static String simpleClassName(Class<?> clazz)
+	{
+		String name = clazz.getName();
+		int lastDot = name.lastIndexOf('.');
+		return lastDot < 0 ? name : name.substring(lastDot + 1);
+	}
+
 	private static int debugTerrain(ServerCommandSource sender, int radiusChunks, Integer centerChunkX, Integer centerChunkZ)
 	{
 		ServerPlayerEntity player = sender.getEntity() instanceof ServerPlayerEntity ? (ServerPlayerEntity)sender.getEntity() : null;
@@ -979,11 +1022,17 @@ public class UhcGameCommand
 		if (chunkGenerator instanceof NoiseChunkGenerator)
 		{
 			NoiseRouter router = ((NoiseChunkGenerator)chunkGenerator).getSettings().value().noiseRouter();
-			routerInfo = "finalDensity=" + router.finalDensity().getClass().getSimpleName()
-					+ ", continents=" + router.continents().getClass().getSimpleName();
+			// simpleClassName, not getSimpleName(): under MARINE these two ARE the density function
+			// classes nested inside MinecraftServerMixin, and Mixin merges them into MinecraftServer
+			// under a generated name without fixing up the InnerClasses attribute. getSimpleName()
+			// reads that attribute and throws
+			//   IncompatibleClassChangeError: ... disagree on InnerClasses attribute
+			// which killed this command on exactly the mode it exists to diagnose.
+			routerInfo = "finalDensity=" + simpleClassName(router.finalDensity().getClass())
+					+ ", continents=" + simpleClassName(router.continents().getClass());
 		}
 		final String liveRouterInfo = routerInfo;
-		final String generatorName = chunkGenerator.getClass().getSimpleName();
+		final String generatorName = simpleClassName(chunkGenerator.getClass());
 		sender.sendFeedback(() -> Text.literal("生成器 " + generatorName + " | " + liveRouterInfo), false);
 
 		int total = 0;

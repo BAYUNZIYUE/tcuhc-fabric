@@ -1,0 +1,10 @@
+# T3 - duplicate config books (issue 6)
+# Run three times over; then check the operator's inventory has exactly ONE
+# config book (written book named "UHC 游戏配置").
+uhc config
+uhc config
+uhc config
+uhc option gameTime add
+uhc option gameTime sub
+uhc configPage 1
+uhc configPage 0

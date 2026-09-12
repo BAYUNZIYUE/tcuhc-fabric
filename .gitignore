@@ -31,3 +31,7 @@ bin/
 # fabric
 
 run/
+
+# python
+__pycache__/
+*.pyc

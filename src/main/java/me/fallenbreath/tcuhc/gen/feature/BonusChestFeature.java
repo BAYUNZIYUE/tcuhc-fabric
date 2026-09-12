@@ -75,7 +75,6 @@ public class BonusChestFeature extends Feature<DefaultFeatureConfig>
 	private static final RegistryKey<Enchantment>[] NORMAL_ENCHANTMENTS = new RegistryKey[]{
 			net.minecraft.enchantment.Enchantments.POWER,
 			net.minecraft.enchantment.Enchantments.SHARPNESS,
-			net.minecraft.enchantment.Enchantments.UNBREAKING,
 			net.minecraft.enchantment.Enchantments.EFFICIENCY,
 			net.minecraft.enchantment.Enchantments.FIRE_ASPECT,
 			net.minecraft.enchantment.Enchantments.PROTECTION,
@@ -84,7 +83,6 @@ public class BonusChestFeature extends Feature<DefaultFeatureConfig>
 	private static final RegistryKey<Enchantment>[] MARINE_ENCHANTMENTS = new RegistryKey[]{
 			net.minecraft.enchantment.Enchantments.POWER,
 			net.minecraft.enchantment.Enchantments.SHARPNESS,
-			net.minecraft.enchantment.Enchantments.UNBREAKING,
 			net.minecraft.enchantment.Enchantments.EFFICIENCY,
 			net.minecraft.enchantment.Enchantments.FIRE_ASPECT,
 			net.minecraft.enchantment.Enchantments.PROTECTION,
@@ -99,7 +97,6 @@ public class BonusChestFeature extends Feature<DefaultFeatureConfig>
 	private static final RegistryKey<Enchantment>[] ICARUS_ENCHANTMENTS = new RegistryKey[]{
 			net.minecraft.enchantment.Enchantments.POWER,
 			net.minecraft.enchantment.Enchantments.SHARPNESS,
-			net.minecraft.enchantment.Enchantments.UNBREAKING,
 			net.minecraft.enchantment.Enchantments.EFFICIENCY,
 			net.minecraft.enchantment.Enchantments.FIRE_ASPECT,
 			net.minecraft.enchantment.Enchantments.PROTECTION,

@@ -1,0 +1,6 @@
+# Read-only: dump the current match state without changing anything.
+uhc
+list
+scoreboard objectives list
+team list
+time query gametime

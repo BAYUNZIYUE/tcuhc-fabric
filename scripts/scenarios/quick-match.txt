@@ -1,0 +1,9 @@
+# Fast full-match smoke test. Run with:
+#   python scripts/rcon.py --file scripts/scenarios/quick-match.txt
+# Assumes at least one player (or Carpet bot) is online and opped.
+#
+# Tiny world so pregeneration finishes in seconds.
+uhc option borderStart sub
+uhc option gameTime sub
+uhc config
+list

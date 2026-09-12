@@ -127,7 +127,8 @@ public class UhcPlayerManager
 				player.changeGameMode(GameMode.SPECTATOR);
 			else {
 				player.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(20);
-				player.changeGameMode(GameMode.ADVENTURE);
+				player.changeGameMode(gameManager.getConfigManager().isConfiguring()
+						? GameMode.SURVIVAL : GameMode.ADVENTURE);
 				regiveConfigItems(player);
 				if (gameManager.getConfigManager().isConfiguring())
 					player.setInvulnerable(true);
@@ -144,11 +145,75 @@ public class UhcPlayerManager
 				player.equipStack(EquipmentSlot.CHEST, teamItem);
 			});
 			if (gameManager.getConfigManager().isOperator(player))
-				player.getInventory().insertStack(BookNBT.getConfigBook(gameManager, gameManager.getConfigManager().getConfigBookPage()));
-			player.getInventory().insertStack(BookNBT.getPlayerBook(gameManager));
+				this.giveOrRefreshConfigBook(player);
+			this.giveOrRefreshPlayerBook(player);
 		}
 	}
 	
+	/**
+	 * Gives the operator a config book, or refreshes the one they already hold.
+	 *
+	 * <p>Never inserts a second copy. {@code /uhc config} is safe to run repeatedly, which matters
+	 * because it is also the "set up the next game" entry point.
+	 */
+	public void giveOrRefreshConfigBook(ServerPlayerEntity player) {
+		PlayerInventory inventory = player.getInventory();
+		boolean found = false;
+		for (int slot = 0; slot < inventory.size(); slot++) {
+			if (BookNBT.isTcUhcBook(inventory.getStack(slot), BookNBT.CONFIG_BOOK)) {
+				inventory.setStack(slot, BookNBT.getConfigBook(gameManager, gameManager.getConfigManager().getConfigBookPage()));
+				found = true;
+			}
+		}
+		if (!found) {
+			inventory.insertStack(BookNBT.getConfigBook(gameManager, gameManager.getConfigManager().getConfigBookPage()));
+		}
+		player.playerScreenHandler.sendContentUpdates();
+	}
+
+	/** Same give-or-refresh contract as {@link #giveOrRefreshConfigBook}, for the team-select book. */
+	public void giveOrRefreshPlayerBook(ServerPlayerEntity player) {
+		PlayerInventory inventory = player.getInventory();
+		boolean found = false;
+		for (int slot = 0; slot < inventory.size(); slot++) {
+			if (BookNBT.isTcUhcBook(inventory.getStack(slot), BookNBT.PLAYER_BOOK)) {
+				inventory.setStack(slot, BookNBT.getPlayerBook(gameManager));
+				found = true;
+			}
+		}
+		if (!found) {
+			inventory.insertStack(BookNBT.getPlayerBook(gameManager));
+		}
+		player.playerScreenHandler.sendContentUpdates();
+	}
+
+	/**
+	 * Returns every tracked player to the pre-game lobby state after a match has ended: alive,
+	 * un-teamed, full health, survival mode, standing on the spawn platform with the selection
+	 * book. Called from {@link UhcGameManager#returnToLobby()}.
+	 */
+	public void resetForNextGame() {
+		teams.forEach(UhcGameTeam::clearTeam);
+		teams.clear();
+		combatPlayerList.clear();
+		observePlayerList.clear();
+		lastTeamFormFailureReason = null;
+		playersPerTeam = 0;
+
+		for (UhcGamePlayer gamePlayer : Lists.newArrayList(allPlayerList)) {
+			gamePlayer.resetForNextGame();
+			gamePlayer.getRealPlayer().ifPresent(playermp -> {
+				playermp.changeGameMode(GameMode.SURVIVAL);
+				playermp.setCameraEntity(playermp);
+				playermp.clearStatusEffects();
+				playermp.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH).setBaseValue(20);
+				playermp.getInventory().clear();
+				this.randomSpawnPosition(playermp);
+				this.resetHealthAndFood(playermp);
+			});
+		}
+	}
+
 	public void regiveAdjustBook(ServerPlayerEntity player, boolean force) {
 		ItemStack currentStack = player.getInventory().getMainHandStack();
 		ItemStack book = BookNBT.getAdjustBook(gameManager);
@@ -272,10 +337,7 @@ public class UhcPlayerManager
 				gamePlayer.setDead(gameManager.getGameTimeRemaining());
 				broadcastDeathMessage(player, cause);
 				spawnDeathLightning(player);
-				player.changeGameMode(GameMode.SPECTATOR);
-				if (gameManager.getOptions().getBooleanOptionValue("forceViewport")) {
-					gameManager.addTask(new TaskKeepSpectate(gamePlayer));
-				}
+				this.enterSpectatorAfterDeathProcessing(gamePlayer);
 				if (gamePlayer.getTeam().getAliveCount() == 0) {
 					broadcastTeamEliminated(gamePlayer.getTeam());
 					gameManager.checkWinner();
@@ -305,6 +367,68 @@ public class UhcPlayerManager
 		{
 			entityitem.setPickupDelay(40);
 		}
+	}
+
+	/**
+	 * Puts a dead player into spectator mode, but only once vanilla has finished processing the
+	 * death.
+	 *
+	 * <p>This must not happen inline. The UHC death hook injects at the HEAD of
+	 * {@code ServerPlayerEntity.onDeath}, and vanilla's own body then does:
+	 *
+	 * <pre>if (!this.isSpectator()) { this.drop(damageSource); }</pre>
+	 *
+	 * <p>Switching the gamemode straight away therefore makes vanilla skip {@code drop(...)}
+	 * entirely, so {@code dropInventory()} never runs and the inventory is silently never dropped.
+	 * Deferring by one task tick keeps the player a survival player for the rest of vanilla's
+	 * death handling and restores the drop.
+	 */
+	private void enterSpectatorAfterDeathProcessing(UhcGamePlayer gamePlayer) {
+		gameManager.addTask(new TaskOnce(new Task() {
+			@Override
+			public void onUpdate() {
+				enterSpectatorNow(gamePlayer);
+			}
+		}));
+	}
+
+	/**
+	 * Puts a dead player into spectator mode right now.
+	 *
+	 * <p>Idempotent on purpose. With {@code doImmediateRespawn} on (see
+	 * {@code UhcGameManager.initWorlds}) the client asks to respawn the instant it is told about
+	 * the death, so this can be reached from two directions in either order: the deferred
+	 * post-death task above, and {@link #onPlayerRespawn}. Whichever arrives first wins and the
+	 * other is a no-op.
+	 */
+	private void enterSpectatorNow(UhcGamePlayer gamePlayer) {
+		gamePlayer.getRealPlayer().ifPresent(playermp -> {
+			if (!playermp.isSpectator()) {
+				playermp.changeGameMode(GameMode.SPECTATOR);
+			}
+		});
+		if (gameManager.getOptions().getBooleanOptionValue("forceViewport") && !gamePlayer.isSpectateTaskArmed()) {
+			gamePlayer.setSpectateTaskArmed(true);
+			gameManager.addTask(new TaskKeepSpectate(gamePlayer));
+		}
+	}
+
+	/**
+	 * Sends a freshly respawned dead player back to where they died.
+	 *
+	 * <p>An immediate respawn drops them at the world spawn point, which for MARINE is the middle
+	 * of the ocean and nowhere near the fight they just lost.
+	 */
+	private void returnToDeathPos(UhcGamePlayer gamePlayer, ServerPlayerEntity player) {
+		Position deathPos = gamePlayer.getDeathPos();
+		if (deathPos == null) {
+			return;
+		}
+		ServerWorld deathWorld = gameManager.getMinecraftServer().getWorld(deathPos.dimension);
+		if (deathWorld == null) {
+			return;
+		}
+		player.teleport(deathWorld, deathPos.pos.x, deathPos.pos.y, deathPos.pos.z, deathPos.yaw, deathPos.pitch);
 	}
 
 	// Keep the original UHC feedback explicit even if vanilla death chat is inconsistent.
@@ -360,6 +484,12 @@ public class UhcPlayerManager
 		if (gameManager.isGamePlaying()) {
 			UhcGamePlayer gamePlayer = getGamePlayer(player);
 			if (!gamePlayer.isAlive()) {
+				// The match runs with doImmediateRespawn on so the client never shows the
+				// "Respawn / Title Screen" panel. The cost is that vanilla hands us back a plain
+				// survival player standing at the world spawn, so finish the job here: spectator,
+				// and back to where they died.
+				this.enterSpectatorNow(gamePlayer);
+				this.returnToDeathPos(gamePlayer, player);
 				player.setCameraEntity(player);
 			}
 		} else this.randomSpawnPosition(player);

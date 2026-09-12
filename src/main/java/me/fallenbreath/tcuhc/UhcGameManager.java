@@ -22,6 +22,7 @@ import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.ScoreboardCriterion;
 import net.minecraft.scoreboard.ScoreboardDisplaySlot;
 import net.minecraft.scoreboard.ScoreboardObjective;
+import net.minecraft.scoreboard.Team;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.PlayerManager;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -34,6 +35,7 @@ import net.minecraft.util.Formatting;
 import net.minecraft.util.WorldSavePath;
 import net.minecraft.util.math.BlockPos;
 import net.minecraft.world.Difficulty;
+import net.minecraft.world.GameMode;
 import net.minecraft.world.GameRules;
 import net.minecraft.world.Heightmap;
 import net.minecraft.world.World;
@@ -189,6 +191,34 @@ public class UhcGameManager extends Taskable {
 		}
 		SpawnPlatform.generatePlatform(this, getOverWorld());
 		this.addTask(new TaskHUDInfo(mcServer));
+		this.warnOnStaleTerrain();
+	}
+
+	/**
+	 * The settings that shape terrain live in {@code uhc.properties}, which survives a regen, while
+	 * the terrain itself lives in the world folder. Changing {@code battleType} without regenerating
+	 * therefore silently keeps the previous terrain - the reported "normal mode seems to be using
+	 * the marine world generator".
+	 */
+	private void warnOnStaleTerrain() {
+		String previous = worldData.checkGeneratorIdentity(getGeneratorIdentity());
+		if (previous == null) {
+			return;
+		}
+		LOG.warn("World terrain was generated with [{}] but the current settings are [{}]", previous, getGeneratorIdentity());
+		this.broadcastMessage(Formatting.RED + "警告：当前地形是用 [" + previous + "] 生成的，");
+		this.broadcastMessage(Formatting.RED + "但现在的设置是 [" + getGeneratorIdentity() + "]。");
+		this.broadcastMessage(Formatting.RED + "地形不会自动改变，请执行 /uhc regen 重新生成地形。");
+	}
+
+	/** The generator-affecting settings, as a single comparable string stored in {@code uhc.json}. */
+	public static String getGeneratorIdentity() {
+		return String.format(
+				"battleType=%s,levelType=%s,disableOceanBiomes=%s",
+				getBattleType().name(),
+				getLevelType().name(),
+				Options.instance.getBooleanOptionValue("disableOceanBiomes")
+		);
 	}
 
 	public void startPregenerateOverworld()
@@ -407,12 +437,42 @@ public class UhcGameManager extends Taskable {
 		if (isGameEnded) return;
 		isGamePlaying = false;
 		isGameEnded = true;
+		// The ended phase is still part of the match experience: everyone should be free to fly
+		// around and inspect the battlefield until an operator opens /uhc config for the next game.
+		// Do this immediately instead of waiting for TaskBroadcastData's first round, otherwise the
+		// surviving players remain in survival for eight seconds after the winner is announced.
+		getServerPlayerManager().getPlayerList().forEach(player -> {
+			player.changeGameMode(GameMode.SPECTATOR);
+			player.setCameraEntity(player);
+		});
 		removeWorldBorder();
 		TaskScoreboard.hideScoreboard();
 		bossInfo.ifPresent(info -> info.setVisible(false));
 		bossInfo = Optional.empty();
 	}
 	
+	/**
+	 * Ends the current match on an operator's say-so.
+	 *
+	 * <p>{@link #endGame()} on its own only tears the HUD down - no message, no score board, no
+	 * winner recorded - so from a player's seat {@code /uhc stop} looked like it had done nothing
+	 * at all. Settle the match the same way {@link #onNoTeamWin()} does, just with the reason
+	 * being an admin rather than the last death.
+	 *
+	 * @return false if there was no match to stop, so the caller can say so.
+	 */
+	public boolean stopGameByOperator() {
+		if (!isGamePlaying || isGameEnded) return false;
+		TitleUtil.sendTitleToAllPlayers("游戏结束", "管理员已结束本局");
+		this.broadcastMessage(Formatting.GOLD + "管理员已结束本局游戏，按当前积分结算。");
+		finalizeAliveTimes();
+		this.printFinalScores(null);
+		winnerList.setWinner(new ArrayList<UhcGamePlayer>());
+		this.endGame();
+		this.addTask(new TaskBroadcastData(160));
+		return true;
+	}
+
 	public void checkWinner() {
 		if (isGameEnded || !isGamePlaying) return;
 		int remainTeamCnt = 0;
@@ -457,6 +517,11 @@ public class UhcGameManager extends Taskable {
 		int borderStart = uhcOptions.getIntegerOptionValue("borderStart");
 		for (ServerWorld world : mcServer.getWorlds()) {
 			world.getGameRules().get(GameRules.NATURAL_REGENERATION).set(false, mcServer);
+			// No "You died - Respawn / Title Screen" panel during a match. A UHC death is final,
+			// so the panel offers a choice that does not exist and just delays the switch to
+			// spectator until the player clicks something. With this on, the client respawns by
+			// itself and UhcPlayerManager.onPlayerRespawn turns that into spectator-at-death-spot.
+			world.getGameRules().get(GameRules.DO_IMMEDIATE_RESPAWN).set(true, mcServer);
 			world.getGameRules().get(GameRules.DO_DAYLIGHT_CYCLE).set(daylightCycle, mcServer);
 			world.setTimeOfDay(0);
 			if(weather != Weather.NORMAL) {
@@ -597,9 +662,51 @@ public class UhcGameManager extends Taskable {
 	public void destroySpawnPlatform() { SpawnPlatform.destroyPlatform(getOverWorld()); }
 	
 	public void startConfiguration(ServerPlayerEntity operator) {
+		// A finished match leaves everyone in spectator with no way back, so re-configuring used to
+		// require switching to creative by hand. Reopening the configuration is the natural
+		// "set up the next game" gesture, so make it reset the match first.
+		if (isGameEnded) {
+			this.returnToLobby();
+		}
 		configManager.startConfiguring(playerManager.getGamePlayer(operator));
-		operator.getInventory().insertStack(BookNBT.getConfigBook(this, configManager.getConfigBookPage()));
+		// Give-or-refresh, never a blind insert: running /uhc config twice used to leave the
+		// operator holding two config books, and every later edit refreshed only one of them.
+		playerManager.giveOrRefreshConfigBook(operator);
 		if (!UhcGameManager.instance.isGamePlaying()) SpawnPlatform.generateSafePlatform(getOverWorld());
+	}
+
+	/**
+	 * Takes the server from "match finished" back to the pre-game lobby, so the operator can set up
+	 * the next game without creative mode and without a restart.
+	 *
+	 * <p>Deliberately does <em>not</em> touch the terrain: regenerating is a separate, explicit
+	 * decision made with {@code /uhc regen}.
+	 */
+	public void returnToLobby() {
+		if (!isGameEnded && !isGamePlaying) {
+			return;
+		}
+		isGamePlaying = false;
+		isGameEnded = false;
+		this.cancelTasks();
+		removeWorldBorder();
+		TaskScoreboard.hideScoreboard();
+		bossInfo.ifPresent(info -> info.setVisible(false));
+		bossInfo = Optional.empty();
+
+		Scoreboard scoreboard = getMainScoreboard();
+		for (Object team : scoreboard.getTeams().toArray()) {
+			scoreboard.removeTeam((Team) team);
+		}
+
+		playerManager.resetForNextGame();
+		// Back to vanilla behaviour outside a match; initWorlds turns it on again next game.
+		for (ServerWorld world : mcServer.getWorlds()) {
+			world.getGameRules().get(GameRules.DO_IMMEDIATE_RESPAWN).set(false, mcServer);
+		}
+		this.generateSpawnPlatform();
+		this.addTask(new TaskHUDInfo(mcServer));
+		this.broadcastMessage(Formatting.GOLD + "已返回大厅，可以配置下一局游戏了。");
 	}
 	
 	public void broadcastMessage(String msg) {

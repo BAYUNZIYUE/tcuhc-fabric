@@ -12,6 +12,20 @@ public class UhcWorldData
 	public int spawnPlatformHeight = -1;
 	public StructureType netherFortressType = StructureType.randomChoose();
 
+	/**
+	 * The generator-affecting settings this world's terrain was actually built with.
+	 *
+	 * <p>Terrain lives in the world folder, but the settings that shaped it live in
+	 * {@code uhc.properties} in the server directory, which survives a regen. Changing
+	 * {@code battleType} without regenerating therefore leaves the old terrain in place - that is
+	 * what "normal mode seems to be using the marine world generator" actually is. Recording the
+	 * identity here lets the server say so at startup instead of leaving it to be discovered in
+	 * game.
+	 *
+	 * <p>Null on worlds created before this field existed; treated as "unknown, do not warn".
+	 */
+	public String generatorIdentity = null;
+
 	private UhcWorldData()
 	{
 		this.save();
@@ -20,6 +34,27 @@ public class UhcWorldData
 	public boolean isSpawnPlatformHeightValid()
 	{
 		return this.spawnPlatformHeight != -1;
+	}
+
+	/**
+	 * Compares the recorded generator identity with the current settings, adopting the current one
+	 * if this world has never recorded any.
+	 *
+	 * @return the previously recorded identity when it differs from {@code current}, otherwise null
+	 */
+	public String checkGeneratorIdentity(String current)
+	{
+		if (this.generatorIdentity == null)
+		{
+			this.generatorIdentity = current;
+			this.save();
+			return null;
+		}
+		if (this.generatorIdentity.equals(current))
+		{
+			return null;
+		}
+		return this.generatorIdentity;
 	}
 
 	public static UhcWorldData load()

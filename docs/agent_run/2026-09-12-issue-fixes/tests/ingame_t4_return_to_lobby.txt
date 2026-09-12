@@ -1,0 +1,7 @@
+# T4 - reconfigure after a match without creative mode (issue 7)
+# Expects a finished match (run `uhc stop` first if needed).
+uhc stop
+list
+# /uhc config must broadcast 已返回大厅 and put everyone back in adventure mode
+uhc config
+list

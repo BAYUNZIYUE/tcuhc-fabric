@@ -1,0 +1,41 @@
+[09:57:51] [main/INFO] (TC UHC) level-type from uhc.properties: option=д╛хо, server.properties='minecraft:normal' -> 'default'
+[09:57:54] [main/INFO] (TC UHC) Loaded uhc world data
+[09:57:54] [Server thread/INFO] (TC UHC) MARINE overworld generator swapped to NoiseChunkGenerator with ocean-family multi-noise biomes
+[09:57:55] [Server thread/INFO] (TC UHC) Set spawn platform height to y160
+[09:57:55] [Server thread/INFO] (Minecraft) Done (0.994s)! For help, type "help"
+[09:57:55] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/dark_oak_leaves -> REPLACED apple pool (pool index 2, 3 pools now)
+[09:57:55] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/mangrove_leaves -> APPENDED apple pool (pool index -1, 2 pools now)
+[09:57:55] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/jungle_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:57:55] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/birch_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:57:55] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/azalea_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:57:55] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/spruce_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:57:55] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/acacia_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:57:55] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/cherry_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:57:55] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/flowering_azalea_leaves -> APPENDED apple pool (pool index -1, 3 pools now)
+[09:57:55] [Server thread/INFO] (TC UHC) UHC loot: minecraft:blocks/oak_leaves -> REPLACED apple pool (pool index 2, 3 pools now)
+[09:57:55] [Server thread/INFO] (TC UHC) UHC loot injection done: 10 leaves tables, 3 ore tables
+[09:58:43] [Server thread/INFO] (TC UHC) Bonus chest feature placed 16 chests so far; latest at BlockPos{x=-360, y=48, z=62}
+[09:58:43] [Server thread/INFO] (TC UHC) Bonus chest feature placed 32 chests so far; latest at BlockPos{x=-333, y=57, z=-376}
+[09:58:43] [Server thread/INFO] (TC UHC) Bonus chest feature placed 48 chests so far; latest at BlockPos{x=-318, y=41, z=267}
+[09:58:43] [Server thread/INFO] (TC UHC) Bonus chest feature placed 64 chests so far; latest at BlockPos{x=-265, y=42, z=-219}
+[09:58:43] [Server thread/INFO] (TC UHC) Bonus chest feature placed 80 chests so far; latest at BlockPos{x=-201, y=55, z=321}
+[09:58:44] [Server thread/INFO] (TC UHC) Bonus chest feature placed 96 chests so far; latest at BlockPos{x=-133, y=52, z=334}
+[09:58:44] [Server thread/INFO] (TC UHC) Bonus chest feature placed 112 chests so far; latest at BlockPos{x=-83, y=48, z=-264}
+[09:58:44] [Server thread/INFO] (TC UHC) Bonus chest feature placed 128 chests so far; latest at BlockPos{x=49, y=54, z=-316}
+[09:58:44] [Server thread/INFO] (TC UHC) Bonus chest feature placed 144 chests so far; latest at BlockPos{x=115, y=54, z=307}
+[09:58:44] [Server thread/INFO] (TC UHC) Bonus chest feature placed 160 chests so far; latest at BlockPos{x=207, y=49, z=377}
+[09:58:44] [Server thread/INFO] (TC UHC) Bonus chest feature placed 176 chests so far; latest at BlockPos{x=269, y=39, z=364}
+[09:58:44] [Server thread/INFO] (TC UHC) Bonus chest feature placed 192 chests so far; latest at BlockPos{x=291, y=54, z=180}
+[09:58:44] [Server thread/INFO] (TC UHC) Bonus chest feature placed 208 chests so far; latest at BlockPos{x=324, y=54, z=-162}
+[09:58:44] [Server thread/INFO] (TC UHC) Bonus chest feature placed 224 chests so far; latest at BlockPos{x=359, y=54, z=-309}
+[09:58:44] [Server thread/INFO] (TC UHC) Bonus chest feature placed 240 chests so far; latest at BlockPos{x=393, y=46, z=167}
+[09:59:40] [Server thread/INFO] (TC UHC) Bonus chest feature placed 256 chests so far; latest at BlockPos{x=176, y=43, z=490}
+[09:59:40] [Server thread/INFO] (TC UHC) Bonus chest feature placed 272 chests so far; latest at BlockPos{x=405, y=55, z=293}
+[09:59:40] [Server thread/INFO] (TC UHC) Bonus chest feature placed 288 chests so far; latest at BlockPos{x=442, y=44, z=169}
+[09:59:40] [Server thread/INFO] (TC UHC) Bonus chest feature placed 304 chests so far; latest at BlockPos{x=493, y=48, z=218}
+[10:00:21] [Server thread/INFO] (TC UHC) Bonus chest feature placed 320 chests so far; latest at BlockPos{x=-543, y=53, z=-356}
+[10:00:21] [Server thread/INFO] (TC UHC) Bonus chest feature placed 336 chests so far; latest at BlockPos{x=-493, y=55, z=-278}
+[10:00:21] [Server thread/INFO] (TC UHC) Bonus chest feature placed 352 chests so far; latest at BlockPos{x=-423, y=53, z=-505}
+[10:00:21] [Server thread/INFO] (TC UHC) Bonus chest feature placed 368 chests so far; latest at BlockPos{x=-391, y=58, z=-136}
+[10:00:21] [Server thread/INFO] (TC UHC) Bonus chest feature placed 384 chests so far; latest at BlockPos{x=-287, y=52, z=-525}
+[10:00:21] [Server thread/INFO] (TC UHC) Bonus chest feature placed 400 chests so far; latest at BlockPos{x=-118, y=44, z=-483}

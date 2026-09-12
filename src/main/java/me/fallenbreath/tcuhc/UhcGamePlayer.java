@@ -36,6 +36,8 @@ public class UhcGamePlayer extends Taskable {
 	private final PlayerStatistics statistics = new PlayerStatistics();
 	
 	private int borderReminder;
+	/** Guards against stacking a second TaskKeepSpectate when a dead player respawns again. */
+	private boolean spectateTaskArmed = false;
 	
 	public UhcGamePlayer(ServerPlayerEntity realPlayer) {
 		playerUUID = realPlayer.getUuid();
@@ -53,6 +55,8 @@ public class UhcGamePlayer extends Taskable {
 	public Optional<UhcGameColor> getColorSelected() { return Optional.ofNullable(colorSelected); }
 	public String getName() { return playerName; }
 	public boolean isAlive() { return isAlive; }
+	public boolean isSpectateTaskArmed() { return spectateTaskArmed; }
+	public void setSpectateTaskArmed(boolean armed) { this.spectateTaskArmed = armed; }
 	public PlayerStatistics getStat() { return statistics; }
 	
 	public boolean isSamePlayer(PlayerEntity player) {
@@ -72,6 +76,22 @@ public class UhcGamePlayer extends Taskable {
 		}
 	}
 	
+	/**
+	 * Clears everything that belongs to a single match, so this player can take part in the next
+	 * one without reconnecting. The UUID and name are kept - this is the same person.
+	 */
+	public void resetForNextGame() {
+		this.cancelTasks();
+		this.isAlive = true;
+		this.deathTime = 0;
+		this.deathPos = null;
+		this.team = null;
+		this.colorSelected = null;
+		this.borderReminder = 0;
+		this.spectateTaskArmed = false;
+		this.statistics.clear();
+	}
+
 	public void tick() {
 		this.updateTasks();
 		if (borderReminder > 0) borderReminder--;

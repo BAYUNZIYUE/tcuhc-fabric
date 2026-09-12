@@ -1,0 +1,157 @@
+==============================================================================
+test_java_syntax.py — Java delimiter balance and helper/import wiring
+==============================================================================
+Delimiter balance in every file this run touched
+  PASS  UhcGameManager.java
+        braces +0, parens +0
+  PASS  UhcPlayerManager.java
+        braces +0, parens +0
+  PASS  UhcGamePlayer.java
+        braces +0, parens +0
+  PASS  BookNBT.java
+        braces +0, parens +0
+  PASS  UhcWorldData.java
+        braces +0, parens +0
+  PASS  Options.java
+        braces +0, parens +0
+  PASS  TaskPregenerate.java
+        braces +0, parens +0
+  PASS  MinecraftServerMixin.java
+        braces +0, parens +0
+  PASS  PlayerEntityMixin.java
+        braces +0, parens +0
+
+Every helper introduced by this run is actually declared
+  PASS  UhcPlayerManager.giveOrRefreshConfigBook is declared where it is called
+  PASS  UhcPlayerManager.resetForNextGame is declared where it is called
+  PASS  UhcWorldData.checkGeneratorIdentity is declared where it is called
+  PASS  UhcGamePlayer.resetForNextGame is declared where it is called
+  PASS  UhcPlayerManager.giveOrRefreshPlayerBook is declared where it is called
+  PASS  UhcPlayerManager.enterSpectatorAfterDeathProcessing is declared where it is called
+  PASS  UhcGameManager.returnToLobby is declared where it is called
+  PASS  UhcGameManager.warnOnStaleTerrain is declared where it is called
+  PASS  UhcGameManager.getGeneratorIdentity is declared where it is called
+  PASS  TaskPregenerate.resolveParallelism is declared where it is called
+
+Types newly referenced are imported
+  PASS  UhcGameManager uses Team
+  PASS  TaskPregenerate uses Options
+
+No dangling references to constants this run removed
+  PASS  PARALLELISM_LIMIT / ENQUEUE_THRESHOLD fully replaced
+  PASS  valueNoise is still defined (LandSurface docs reference it) but unused by SubmergedDensityFunction
+
+23 passed, 0 failed
+
+==============================================================================
+test_structural.py — source invariants for every fixed issue
+==============================================================================
+T1 (issue 5) — inventory must drop on death
+  PASS  onPlayerDeath does not switch to SPECTATOR inline
+        an inline switch makes vanilla's `if (!isSpectator()) drop(...)` skip the inventory drop
+  PASS  onPlayerDeath defers the switch
+  PASS  the deferred path uses a Task and does switch to SPECTATOR
+
+T2 (issue 4) — every game mode must be selectable
+  PASS  BookNBT.getPlayerBook handles every EnumMode
+        8 modes found: NORMAL, SOLO, BOSS, GHOST, BOMBER, KING, HUNTER, GHOSTHUNTER | none missing
+  PASS  spreadPlayers handles every EnumMode
+        none missing
+  PASS  automaticFormTeams handles every EnumMode
+        none missing
+  PASS  manuallyFormTeams handles every EnumMode
+        none missing
+  PASS  getAdjustBook handles every EnumMode
+        none missing
+
+T3 (issue 6) — no duplicate config books
+  PASS  startConfiguration does not blind-insert a config book
+        a blind insert is what produced a second book on the second /uhc config
+  PASS  startConfiguration uses the give-or-refresh helper
+  PASS  regiveConfigItems also uses give-or-refresh
+  PASS  giveOrRefreshConfigBook replaces in place before inserting
+
+T4 (issue 7) — reconfiguring after a match needs no creative mode
+  PASS  UhcGameManager exposes returnToLobby()
+  PASS  startConfiguration returns to the lobby when the match has ended
+  PASS  returnToLobby clears the ended flag so joins stop forcing spectator
+  PASS  returnToLobby resets players and teams
+  PASS  returnToLobby rebuilds the lobby platform
+  PASS  resetForNextGame restores ADVENTURE mode
+        a spectator cannot click the config book
+
+T5 (issue 10) — MARINE sea floor
+  PASS  SubmergedDensityFunction no longer uses valueNoise
+        valueNoise is flat at every lattice point -> faceted plateaus
+  PASS  SubmergedDensityFunction uses gradientNoise
+  PASS  SubmergedDensityFunction domain-warps its input
+  PASS  declared bounds are [-1.0, 1.0]
+        minValue=['-1.0'], maxValue=['1.0'] (sample() ranges over [-1, 1])
+
+T6 (issue 2) — stale terrain must be reported
+  PASS  UhcWorldData records a generator identity
+  PASS  UhcWorldData can compare it
+  PASS  the identity covers battleType
+  PASS  startup checks for stale terrain
+  PASS  the warning tells the operator to regen
+
+T7 (issue 3) — golden apple stat
+  PASS  enchanted golden apples count too
+  PASS  the game player is null-checked
+  PASS  UhcGameManager.instance is null-checked
+
+T8 (issues 8, 9) — pregeneration parallelism is configurable
+  PASS  the option is registered
+  PASS  it is grouped as a server-start option
+  PASS  TaskPregenerate reads it
+  PASS  the hard-coded constant is gone
+  PASS  there is a safe fallback
+
+T9 (found during in-game testing) - /uhc debug terrain must survive MARINE
+  PASS  debugTerrain does not call getSimpleName()
+        under MARINE the density functions ARE mixin-merged nested classes; getSimpleName() reads the InnerClasses attribute and throws IncompatibleClassChangeError
+  PASS  debugTerrain uses the getName()-based helper
+
+Invariants — must hold regardless of this run
+  PASS  every mixin on disk is registered
+        46 registered / 46 on disk
+  PASS  every option appears in the config book
+        33 options | all reachable
+
+39 passed, 0 failed
+
+==============================================================================
+test_noise.py — MARINE sea-floor numerics (T5)
+==============================================================================
+T5.1 — bounds contract: minValue()/maxValue() must bound sample()
+  PASS  old SubmergedDensityFunction violated its declared bounds
+        declared [-0.5, 0.5], actually sampled [-1.000, 1.000] -> contract violated, as diagnosed
+  PASS  new SubmergedDensityFunction honours its declared bounds
+        declared [-1.0, 1.0], actually sampled [-1.000, 1.000]
+
+T5.2 — faceting: gradient magnitude on the noise lattice vs everywhere
+  PASS  old floor was measurably flat on the 80-block lattice
+        mean |grad| on lattice / mean |grad| overall = 0.0208 (<0.25 means flat spots on a grid -> faceted plateaus)
+  PASS  new floor has no preferred lattice
+        mean |grad| on lattice / mean |grad| overall = 1.0052 (>0.6 means the lattice is unremarkable)
+  PASS  faceting improved
+        ratio went 0.0208 -> 1.0052
+
+T5.3 — gameplay envelope must be preserved, not just de-faceted
+        old: range [27.5, 69.0], 0.813% of area at/above sea level
+        new: range [29.5, 69.4], 0.836% of area at/above sea level
+  PASS  islands still form
+        0.836% of sampled columns reach sea level 63 or above
+  PASS  island coverage stays close to the old floor
+        old 0.813% vs new 0.836% (tolerance 0.4 points)
+  PASS  peak height stays close to the old floor
+        old max 69.0 vs new max 69.4
+  PASS  the floor is still overwhelmingly underwater
+        99.16% submerged, deepest point 29.5
+
+9 passed, 0 failed
+
+==============================================================================
+All 3 suites passed.
+NOTE: compilation and in-game behaviour are NOT covered here -
+      they need a JDK 21. See TEST_PLAN.md.

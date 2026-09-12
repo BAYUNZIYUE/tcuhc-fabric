@@ -185,13 +185,14 @@ public class BookNBT {
 						.append(createOptionText(options.getOption("chestItemFrequency")))
 						.append(createOptionText(options.getOption("mobCount")))
 						.append(createOptionText(options.getOption("pregenerateOnStart")))
-						.append(createOptionText(options.getOption("netherPregenerate")));
+						.append(createOptionText(options.getOption("netherPregenerate")))
+						.append(createOptionText(options.getOption("pregenerateParallelism")));
 				break;
 			default:
 				text = Text.empty()
 						.append(createConfigBookTitle("操作"))
-						.append(createTextEvent("     重置玩法\n", "/uhc reset 0", "重置玩法相关设置", Formatting.GOLD))
-						.append(createTextEvent("    重置生成\n", "/uhc reset 1", "重置地形生成相关设置", Formatting.GOLD))
+						.append(createTextEvent("     重置玩法\n", "/uhc reset gameplay", "恢复玩法、时间和队伍的默认设置", Formatting.GOLD))
+						.append(createTextEvent("    重置生成\n", "/uhc reset generation", "恢复矿物、宝箱、商人和怪物生成频率；需要重新生成地形", Formatting.GOLD))
 						.append(createTextEvent("       重新生成\n", "/uhc regen", "重新生成地形", Formatting.LIGHT_PURPLE))
 						.append(createTextEvent(" 强制开始（跳过预生成）\n", "/uhc forceStart", "管理员可在预生成未完成时提前开始，需二次确认", Formatting.RED))
 						.append(createTextEvent("         开始游戏！\n", "/uhc start", "开始本局 UHC", Formatting.LIGHT_PURPLE));
@@ -218,6 +219,10 @@ public class BookNBT {
 			text.append(createTextEvent(line, "/uhc select 9", "点击加入战斗", Formatting.BLACK));
 		else {
 			switch ((UhcGameManager.EnumMode) options.getOptionValue("gameMode")) {
+				// KING uses the same colour-team selection as NORMAL - the king is simply the first
+				// player of each team. Without this branch the book renders only the observer row,
+				// so nobody can join a team and /uhc start always refuses with "有玩家未选队".
+				case KING:
 				case NORMAL: {
 					text.append(createTextEvent(line, "/uhc select 9", "点击加入随机队伍", Formatting.BLACK));
 					for (int i = 0; i < teamCount; i++) {

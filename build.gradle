@@ -35,7 +35,16 @@ dependencies {
 	mappings "net.fabricmc:yarn:${project.yarn_mappings}:v2"
 	modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
 
-	modRuntimeOnly 'com.github.astei:lazydfu:0.1.2'
+	// lazydfu (a dev-only DataFixerUpper startup optimisation) is removed: it is a 2020 mod for
+	// 1.16 and does not work on 1.21.1. Two separate failures, both fatal to `gradlew runServer`:
+	//   1. it still declares fabric-loader 0.10.8, which Gradle pulls in transitively and Loom
+	//      remaps as a mod -> "duplicate fabric loader classes found on classpath", Knot refuses
+	//      to start. Survivable with an exclude.
+	//   2. its SchemasMixin @Redirect targets Schemas.method_15471(), which no longer exists ->
+	//      "Critical injection failure ... could not find any targets", server dies on boot.
+	//      Not survivable.
+	// It was modRuntimeOnly, so it never shipped in the jar and nothing in the mod depends on it.
+	// modRuntimeOnly 'com.github.astei:lazydfu:0.1.2'
 
 	fabricApiModules.each {
 		modImplementation fabricApi.module(it, project.fabric_api_version)
