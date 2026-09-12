@@ -22,18 +22,25 @@ public abstract class ServerPropertiesHandlerMixin
 	private static String changeLevelType(String levelType)
 	{
 		UhcGameManager.EnumLevelType type = (UhcGameManager.EnumLevelType) Options.instance.getOptionValue("levelType");
+		String decided;
 		switch (type)
 		{
 			case DEFAULT:
 				// "default" / "largebiomes" are the two aliases in LEVEL_TYPE_TO_PRESET_KEY,
 				// everything else is looked up as a WorldPreset registry id.
-				return "default";
+				decided = "default";
+				break;
 			case AMPLIFIED:
-				return "minecraft:amplified";
+				decided = "minecraft:amplified";
+				break;
 			case LARGEBIOMES:
-				return "largebiomes";
+				decided = "largebiomes";
+				break;
 			default:
-				return levelType;
+				decided = levelType;
+				break;
 		}
+		UhcGameManager.LOG.info("level-type from uhc.properties: option={}, server.properties='{}' -> '{}'", type, levelType, decided);
+		return decided;
 	}
 }

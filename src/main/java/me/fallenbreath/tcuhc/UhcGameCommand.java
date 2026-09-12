@@ -8,17 +8,33 @@ import me.fallenbreath.tcuhc.options.Options;
 import me.fallenbreath.tcuhc.task.TaskOnce;
 import me.fallenbreath.tcuhc.util.PlayerItems;
 import me.fallenbreath.tcuhc.util.Position;
+import net.minecraft.registry.entry.RegistryEntry;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.server.world.ServerWorld;
 import net.minecraft.text.ClickEvent;
 import net.minecraft.text.HoverEvent;
 import net.minecraft.text.MutableText;
 import net.minecraft.text.Text;
 
 import net.minecraft.util.Formatting;
+import net.minecraft.util.math.BlockPos;
+import net.minecraft.util.math.ChunkPos;
 import net.minecraft.util.math.Vec3d;
+import net.minecraft.world.Heightmap;
+import net.minecraft.world.biome.Biome;
+import net.minecraft.world.biome.source.BiomeCoords;
+import net.minecraft.world.biome.source.BiomeSource;
+import net.minecraft.world.biome.source.util.MultiNoiseUtil;
+import net.minecraft.world.chunk.ChunkStatus;
+import net.minecraft.world.gen.chunk.ChunkGenerator;
+import net.minecraft.world.gen.chunk.NoiseChunkGenerator;
+import net.minecraft.world.gen.noise.NoiseRouter;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.TreeMap;
 import java.util.stream.Stream;
 
 import static com.mojang.brigadier.arguments.IntegerArgumentType.getInteger;
@@ -150,6 +166,27 @@ public class UhcGameCommand
 						then(argument("player", string()).
 								suggests((c, b) -> suggestMatching(PlayerItems.getAvailableNames(), b)).
 								executes(c -> giveMorals(c.getSource(), getString(c, "player")))
+						)
+				).
+				then(literal("debug").
+						requires(UhcGameCommand::isOp).
+						then(literal("biome").
+								executes(c -> debugBiome(c.getSource(), 4)).
+								then(argument("radius", integer(1, 16)).
+										executes(c -> debugBiome(c.getSource(), getInteger(c, "radius")))
+								)
+						).
+						then(literal("terrain").
+								executes(c -> debugTerrain(c.getSource(), 4, null, null)).
+								then(argument("radius", integer(1, 24)).
+										executes(c -> debugTerrain(c.getSource(), getInteger(c, "radius"), null, null)).
+										then(argument("chunkX", integer(-30000000, 30000000)).
+												then(argument("chunkZ", integer(-30000000, 30000000)).
+														executes(c -> debugTerrain(c.getSource(), getInteger(c, "radius"),
+																getInteger(c, "chunkX"), getInteger(c, "chunkZ")))
+												)
+										)
+								)
 						)
 				);
 		dispatcher.register(rootNode);
@@ -462,6 +499,256 @@ public class UhcGameCommand
 			return 0;
 		}
 		PlayerItems.dumpMoralsToPlayer(player, targetPlayerName);
+		return 1;
+	}
+
+	/**
+	 * Samples the biome source on a grid around the player and reports the distribution.
+	 * Used to verify the ocean-biome removal (ocean share should be 0) and, conversely, that
+	 * the MARINE battle type still produces an all-ocean world.
+	 */
+	private static int debugBiome(ServerCommandSource sender, int radiusChunks)
+	{
+		// Works from the console too: fall back to the overworld spawn chunk when no player is around.
+		ServerPlayerEntity player = sender.getEntity() instanceof ServerPlayerEntity ? (ServerPlayerEntity)sender.getEntity() : null;
+		ServerWorld world = player != null ? (ServerWorld)player.getWorld() : sender.getServer().getOverworld();
+		ChunkPos center = player != null ? player.getChunkPos() : new ChunkPos(world.getSpawnPos());
+		BiomeSource biomeSource = world.getChunkManager().getChunkGenerator().getBiomeSource();
+		MultiNoiseUtil.MultiNoiseSampler sampler = world.getChunkManager().getNoiseConfig().getMultiNoiseSampler();
+		int sampleY = BiomeCoords.fromBlock(world.getSeaLevel());
+
+		Map<String, Integer> counts = new TreeMap<>();
+		int total = 0;
+		for (int dx = -radiusChunks; dx <= radiusChunks; dx++)
+		{
+			for (int dz = -radiusChunks; dz <= radiusChunks; dz++)
+			{
+				int blockX = (center.x + dx) * 16 + 8;
+				int blockZ = (center.z + dz) * 16 + 8;
+				RegistryEntry<Biome> biome = biomeSource.getBiome(
+						BiomeCoords.fromBlock(blockX),
+						sampleY,
+						BiomeCoords.fromBlock(blockZ),
+						sampler
+				);
+				String biomeId = biome.getKey().map(key -> key.getValue().getPath()).orElse("unknown");
+				counts.merge(biomeId, 1, Integer::sum);
+				total++;
+			}
+		}
+
+		int oceanCount = 0;
+		for (Map.Entry<String, Integer> entry : counts.entrySet())
+		{
+			if (entry.getKey().contains("ocean"))
+			{
+				oceanCount += entry.getValue();
+			}
+		}
+
+		final int sampleTotal = total;
+		final int oceanSamples = oceanCount;
+		final int biomeKinds = counts.size();
+		sender.sendFeedback(() -> Text.literal(String.format(
+				"%s 群系采样：中心区块 [%d, %d]，半径 %d 区块，%d 个采样点，%d 种群系",
+				world.getRegistryKey().getValue().getPath(), center.x, center.z, radiusChunks, sampleTotal, biomeKinds
+		)), false);
+		sender.sendFeedback(() -> Text.literal(String.format(
+				"%s海洋群系 %d 个（%.1f%%）%s，非海洋 %d 个（%.1f%%）",
+				oceanSamples == 0 ? Formatting.GREEN.toString() : Formatting.YELLOW.toString(),
+				oceanSamples, 100.0 * oceanSamples / sampleTotal,
+				Formatting.RESET.toString(),
+				sampleTotal - oceanSamples, 100.0 * (sampleTotal - oceanSamples) / sampleTotal
+		)), false);
+
+		List<Map.Entry<String, Integer>> sorted = new java.util.ArrayList<>(counts.entrySet());
+		sorted.sort((a, b) -> Integer.compare(b.getValue(), a.getValue()));
+		int shown = Math.min(sorted.size(), 8);
+		for (int i = 0; i < shown; i++)
+		{
+			Map.Entry<String, Integer> entry = sorted.get(i);
+			final String line = String.format("  %-30s %4d  %5.1f%%", entry.getKey(), entry.getValue(), 100.0 * entry.getValue() / sampleTotal);
+			sender.sendFeedback(() -> Text.literal(line), false);
+		}
+		if (sorted.size() > shown)
+		{
+			final int rest = sorted.size() - shown;
+			sender.sendFeedback(() -> Text.literal(String.format("  ... 另有 %d 种群系未显示", rest)), false);
+		}
+		return 1;
+	}
+
+	/**
+	 * Samples the terrain on a grid around the player and reports how much of it is under water
+	 * and how much vertical variation there is.
+	 *
+	 * <p>This is the objective counterpart to looking at the map: {@code WORLD_SURFACE} includes
+	 * fluids while {@code OCEAN_FLOOR} ignores them, so the difference between the two is the
+	 * water depth. Used to verify that the former ocean basins are both drained and broken up
+	 * into hills rather than left as one flat puddle.
+	 */
+	private static int debugTerrain(ServerCommandSource sender, int radiusChunks, Integer centerChunkX, Integer centerChunkZ)
+	{
+		ServerPlayerEntity player = sender.getEntity() instanceof ServerPlayerEntity ? (ServerPlayerEntity)sender.getEntity() : null;
+		ServerWorld world = player != null ? (ServerWorld)player.getWorld() : sender.getServer().getOverworld();
+		// Explicit chunk coordinates win, then the player's position, and from the console without
+		// coordinates chunk (0, 0) is used - so two runs with the same level-seed sample exactly the
+		// same area and can be compared A/B.
+		ChunkPos center = centerChunkX != null && centerChunkZ != null
+				? new ChunkPos(centerChunkX, centerChunkZ)
+				: player != null ? player.getChunkPos() : new ChunkPos(0, 0);
+		int seaLevel = world.getSeaLevel();
+
+		// Diagnostic: show which density functions the live chunk generator actually uses, so a
+		// silently-not-applied generator swap is distinguishable from a wrong shape.
+		ChunkGenerator chunkGenerator = world.getChunkManager().getChunkGenerator();
+		String routerInfo = "(not a NoiseChunkGenerator)";
+		if (chunkGenerator instanceof NoiseChunkGenerator)
+		{
+			NoiseRouter router = ((NoiseChunkGenerator)chunkGenerator).getSettings().value().noiseRouter();
+			routerInfo = "finalDensity=" + router.finalDensity().getClass().getSimpleName()
+					+ ", continents=" + router.continents().getClass().getSimpleName();
+		}
+		final String liveRouterInfo = routerInfo;
+		final String generatorName = chunkGenerator.getClass().getSimpleName();
+		sender.sendFeedback(() -> Text.literal("生成器 " + generatorName + " | " + liveRouterInfo), false);
+
+		int total = 0;
+		int submerged = 0;
+		int belowSeaLevel = 0;
+		int maxDepth = 0;
+		int minFloor = Integer.MAX_VALUE;
+		int maxFloor = Integer.MIN_VALUE;
+		long sumFloor = 0;
+
+		for (int dx = -radiusChunks; dx <= radiusChunks; dx++)
+		{
+			for (int dz = -radiusChunks; dz <= radiusChunks; dz++)
+			{
+				int chunkX = center.x + dx;
+				int chunkZ = center.z + dz;
+				int blockX = chunkX * 16 + 8;
+				int blockZ = chunkZ * 16 + 8;
+				world.getChunk(chunkX, chunkZ, ChunkStatus.FULL, true);
+				int surface = world.getTopY(Heightmap.Type.WORLD_SURFACE, blockX, blockZ);
+				// OCEAN_FLOOR is the actual ground, water excluded - WORLD_SURFACE is pinned to the
+				// sea level wherever there is water and therefore tells nothing about the terrain.
+				int floor = world.getTopY(Heightmap.Type.OCEAN_FLOOR, blockX, blockZ);
+				int depth = Math.max(0, surface - floor);
+				if (depth > 0)
+				{
+					submerged++;
+					maxDepth = Math.max(maxDepth, depth);
+				}
+				if (floor < seaLevel - 1)
+				{
+					belowSeaLevel++;
+				}
+				minFloor = Math.min(minFloor, floor);
+				maxFloor = Math.max(maxFloor, floor);
+				sumFloor += floor;
+				total++;
+			}
+		}
+
+		final int sampleTotal = total;
+		final int submergedSamples = submerged;
+		final int belowSamples = belowSeaLevel;
+		final int depthMax = maxDepth;
+		final int floorMin = minFloor;
+		final int floorMax = maxFloor;
+		final double floorAvg = (double)sumFloor / Math.max(1, total);
+
+		sender.sendFeedback(() -> Text.literal(String.format(
+				"%s 地形采样：中心区块 [%d, %d]，半径 %d，%d 个采样点，海平面 y=%d",
+				world.getRegistryKey().getValue().getPath(), center.x, center.z, radiusChunks, sampleTotal, seaLevel
+		)), false);
+		sender.sendFeedback(() -> Text.literal(String.format(
+				"%s被水覆盖 %d 个（%.1f%%）%s，最深水 %d 格；地面低于海平面 %d 个（%.1f%%）",
+				submergedSamples == 0 ? Formatting.GREEN.toString() : Formatting.YELLOW.toString(),
+				submergedSamples, 100.0 * submergedSamples / sampleTotal,
+				Formatting.RESET.toString(),
+				depthMax, belowSamples, 100.0 * belowSamples / sampleTotal
+		)), false);
+		sender.sendFeedback(() -> Text.literal(String.format(
+				"地面高度(OCEAN_FLOOR) min=%d max=%d 平均=%.1f，高差 %d 格；高出海平面 %d 个（%.1f%%）",
+				floorMin, floorMax, floorAvg, floorMax - floorMin,
+				sampleTotal - belowSamples, 100.0 * (sampleTotal - belowSamples) / sampleTotal
+		)), false);
+
+		// Show what the surface is actually made of, so a bare-stone or still-underwater result is
+		// distinguishable from a properly decorated land surface.
+		StringBuilder column = new StringBuilder();
+		int colX = center.x * 16 + 8;
+		int colZ = center.z * 16 + 8;
+		int top = Math.min(world.getTopY(Heightmap.Type.WORLD_SURFACE, colX, colZ), world.getTopY() - 1);
+		for (int y = top; y > top - 4 && y >= world.getBottomY(); y--)
+		{
+			if (column.length() > 0)
+			{
+				column.append(", ");
+			}
+			column.append(y).append('=')
+					.append(world.getBlockState(new BlockPos(colX, y, colZ)).getBlock().getName().getString());
+		}
+		final String columnInfo = column.toString();
+		sender.sendFeedback(() -> Text.literal("中心柱顶部（从高到低）：" + columnInfo), false);
+
+		// A compact ASCII relief map. Numbers cannot show "angular terrain" - a picture can, and at
+		// block resolution the straight-edged facets of a lattice-aligned noise are plainly visible.
+		// The height ramp is stretched over the map's own range, so even gentle relief shows shape.
+		final int mapStep = 1;
+		final int mapWidth = 64;
+		final int mapHeight = 16;
+		int baseX = center.x * 16 + 8 - mapWidth * mapStep / 2;
+		int baseZ = center.z * 16 + 8 - mapHeight * mapStep / 2;
+		int[][] heights = new int[mapHeight][mapWidth];
+		int mapMin = Integer.MAX_VALUE;
+		int mapMax = Integer.MIN_VALUE;
+		for (int row = 0; row < mapHeight; row++)
+		{
+			for (int col = 0; col < mapWidth; col++)
+			{
+				int x = baseX + col * mapStep;
+				int z = baseZ + row * mapStep;
+				world.getChunk(x >> 4, z >> 4, ChunkStatus.FULL, true);
+				int h = world.getTopY(Heightmap.Type.OCEAN_FLOOR, x, z);
+				heights[row][col] = h;
+				mapMin = Math.min(mapMin, h);
+				mapMax = Math.max(mapMax, h);
+			}
+		}
+		final int mapLow = mapMin;
+		final int mapHigh = mapMax;
+		final String ramp = " .:-=+*#%@";
+		sender.sendFeedback(() -> Text.literal(String.format(
+				"地形剖面图 X %d..%d / Z %d..%d（每格 %d 方块，高度 %d..%d，~ = 水）",
+				baseX, baseX + (mapWidth - 1) * mapStep,
+				baseZ, baseZ + (mapHeight - 1) * mapStep,
+				mapStep, mapLow, mapHigh
+		)), false);
+		for (int row = 0; row < mapHeight; row++)
+		{
+			StringBuilder line = new StringBuilder(mapWidth);
+			for (int col = 0; col < mapWidth; col++)
+			{
+				int h = heights[row][col];
+				if (h < seaLevel - 1)
+				{
+					line.append('~');
+				}
+				else if (mapHigh == mapLow)
+				{
+					line.append(ramp.charAt(ramp.length() - 1));
+				}
+				else
+				{
+					line.append(ramp.charAt((h - mapLow) * (ramp.length() - 1) / (mapHigh - mapLow)));
+				}
+			}
+			final String mapLine = line.toString();
+			sender.sendFeedback(() -> Text.literal(mapLine), false);
+		}
 		return 1;
 	}
 }

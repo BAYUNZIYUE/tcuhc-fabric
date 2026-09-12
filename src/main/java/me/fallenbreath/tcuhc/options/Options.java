@@ -63,6 +63,7 @@ public class Options {
 		addOption(new Option("gameMode", "游戏模式", new OptionType.EnumType(EnumMode.class), EnumMode.NORMAL).addTask(taskReselectTeam).setDescription("UHC 对局模式，普通为经典规则，单人为一人一队，Boss 为特殊 Boss 模式。"));
 		addOption(new Option("battleType", "战斗类型", new OptionType.EnumType(EnumBattleType.class), EnumBattleType.NORMAL).addTask(taskReselectTeam).setDescription("UHC 战斗类型，普通为经典规则，鞘翅模式为空战，海战为水域战斗。"));
 		addOption(new Option("levelType", "地形类型", new OptionType.EnumType(UhcGameManager.EnumLevelType.class), UhcGameManager.EnumLevelType.DEFAULT).addTask(taskReselectTeam).setDescription("世界地形类型，默认是原版地形，放大化为夸张地形。"));
+		addOption(new Option("disableOceanBiomes", "禁用海洋群系", new OptionType.BooleanType(), true).addTask(taskReselectTeam).setDescription("非海战模式下不生成任何海洋群系，海洋区域改为同温度的陆地群系，世界以大陆为主。海战模式始终使用纯海洋地形。修改后需要 /uhc regen 重新生成世界才会生效。"));
 		addOption(new Option("randomTeams", "随机分队", new OptionType.BooleanType(), true).addTask(taskReselectTeam).setDescription("队伍随机分配还是手动选择，在单人模式下无效。"));
 		addOption(new Option("teamCount", "队伍数量", new OptionType.IntegerType(2, 8, 1), 4).addTask(taskReselectTeam).setDescription("不同队伍的数量，只在普通模式下生效。"));
 
@@ -93,6 +94,8 @@ public class Options {
 		addOption(new Option("trappedChestFrequency", "空宝箱", new OptionType.FloatType(0.0f, 1.0f, 0.05f), 0.2f).setNeedToSave().setDescription("空奖励宝箱的出现频率。"));
 		addOption(new Option("chestItemFrequency", "宝箱掉落", new OptionType.FloatType(0.0f, 10.0f, 0.1f), 1.0f).setNeedToSave().setDescription("奖励宝箱内可变物品的生成频率。"));
 		addOption(new Option("mobCount", "怪物数量", new OptionType.IntegerType(10, 300, 10), 70).setNeedToSave().setDescription("调整世界中的怪物数量。"));
+		addOption(new Option("netherPregenerate", "地狱预生成", new OptionType.BooleanType(), true).setDescription("是否在预生成阶段一并预生成地狱。关闭可明显缩短预生成总耗时，地狱区块将在玩家进入时按需生成。"));
+		addOption(new Option("pregenerateOnStart", "启动时预生成", new OptionType.BooleanType(), true).setDescription("服务器启动后是否自动预生成世界。关闭后世界创建完即视为就绪，需要预生成时用 /uhc regen 重新生成。"));
 
 		loadPropertiesFile();
 		savePropertiesFile();

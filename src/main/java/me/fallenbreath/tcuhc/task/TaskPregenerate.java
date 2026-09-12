@@ -19,8 +19,6 @@ import net.minecraft.util.math.ChunkPos;
 import net.minecraft.world.chunk.Chunk;
 import net.minecraft.world.chunk.ChunkStatus;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -385,16 +383,10 @@ public class TaskPregenerate extends Task
 			UhcGameManager.instance.startPregenerateNether();
 			return;
 		}
-		try
-		{
-			File preload = UhcGameManager.getPreloadFile();
-			if (!preload.exists())
-				preload.createNewFile();
-			UhcGameManager.instance.setPregenerateComplete();
-		}
-		catch (IOException ignored)
-		{
-		}
+		// A non-overworld pregeneration finishing means the whole flow is done. Ending it is
+		// UhcGameManager's job so the preload marker and the "pregenerating" flag stay in sync
+		// no matter which stages actually ran.
+		UhcGameManager.instance.setPregenerateComplete();
 	}
 
 	private static List<ChunkPos> createChunkToLoadList(int targetRadius)

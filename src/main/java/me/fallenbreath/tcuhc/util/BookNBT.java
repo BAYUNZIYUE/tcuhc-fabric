@@ -145,6 +145,7 @@ public class BookNBT {
 						.append(createOptionText(options.getOption("gameMode")))
 						.append(createOptionText(options.getOption("battleType")))
 						.append(createOptionText(options.getOption("levelType")))
+						.append(createOptionText(options.getOption("disableOceanBiomes")))
 						.append(createOptionText(options.getOption("randomTeams")))
 						.append(createOptionText(options.getOption("teamCount")));
 				break;
@@ -182,7 +183,9 @@ public class BookNBT {
 						.append(createOptionText(options.getOption("chestFrequency")))
 						.append(createOptionText(options.getOption("trappedChestFrequency")))
 						.append(createOptionText(options.getOption("chestItemFrequency")))
-						.append(createOptionText(options.getOption("mobCount")));
+						.append(createOptionText(options.getOption("mobCount")))
+						.append(createOptionText(options.getOption("pregenerateOnStart")))
+						.append(createOptionText(options.getOption("netherPregenerate")));
 				break;
 			default:
 				text = Text.empty()

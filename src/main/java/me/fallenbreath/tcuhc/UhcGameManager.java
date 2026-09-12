@@ -177,8 +177,15 @@ public class UhcGameManager extends Taskable {
 		this.displayHealth();
 		TaskScoreboard.hideScoreboard();
 		if (!preloaded) {
-			this.startPregenerateOverworld();
-			isPregenerating = true;
+			if (uhcOptions.getBooleanOptionValue("pregenerateOnStart")) {
+				this.startPregenerateOverworld();
+				isPregenerating = true;
+			} else {
+				// Pregeneration is disabled, so the world is ready the moment it is created.
+				// Still mark it as complete, otherwise the missing preload marker makes the
+				// next boot wipe this world again.
+				this.setPregenerateComplete();
+			}
 		}
 		SpawnPlatform.generatePlatform(this, getOverWorld());
 		this.addTask(new TaskHUDInfo(mcServer));
@@ -193,6 +200,13 @@ public class UhcGameManager extends Taskable {
 
 	public void startPregenerateNether()
 	{
+		if (!uhcOptions.getBooleanOptionValue("netherPregenerate"))
+		{
+			// Skipping the nether still has to end the pregeneration flow, otherwise the
+			// preload marker is never written and the next boot regenerates the world.
+			this.setPregenerateComplete();
+			return;
+		}
 		ServerWorld nether = mcServer.getWorld(World.NETHER);
 		if (nether == null)
 		{
@@ -204,8 +218,21 @@ public class UhcGameManager extends Taskable {
 		this.addTask(new TaskPregenerate(mcServer, radius / 8 + 10, nether));
 	}
 	
+	/**
+	 * Single exit point for "this world finished pregenerating". It also owns the preload
+	 * marker, which doubles as the flag that tells {@link #tryUpdateSaveFolder} the world
+	 * directory may be kept: a world without it gets wiped on the next boot.
+	 */
 	public void setPregenerateComplete() {
 		isPregenerating = false;
+		try {
+			File preload = getPreloadFile();
+			if (!preload.exists() && !preload.createNewFile()) {
+				LOG.warn("Failed to create preload marker {}", preload);
+			}
+		} catch (IOException e) {
+			LOG.warn("Failed to create preload marker", e);
+		}
 	}
 	
 	public boolean isPregenerating() {

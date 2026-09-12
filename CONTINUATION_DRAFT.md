@@ -183,3 +183,152 @@ Pregenerate re-queued chunk [-6, -4] ... (holderPresent=true, actualStatus=minec
   旧版注入挂在 `LootManager#apply`（每次数据包重载都会重跑）；移植后只挂 `SERVER_STARTED`，
   一旦有人 `/reload`，loot table 会从 JSON 重建，注入被**静默清掉**。并补回逐表诊断日志。
 - `tcuhc.mixins.json`：注册数 45 → **46**（新增 `entity.ZombieEntityMixin`）。
+
+---
+
+## 2026-09-12 — 预生成选项 + 非海战无海洋群系（未提交）
+
+### 需求 1：预生成可选开关
+
+新增两个配置项：
+
+| 选项 | 默认 | 作用 |
+|---|---|---|
+| `netherPregenerate` | `true` | 关闭后预生成只跑主世界，跳过地狱 |
+| `pregenerateOnStart` | `true` | 关闭后世界创建完即视为就绪，不自动预生成 |
+
+⚠️ **前置重构（必须做，否则选项会毁数据）**：`preload` 标记原本写在
+`TaskPregenerate.onFinish()` 的「非 overworld 分支」里，语义实际是「**地狱生成完了**」。
+任何「跳过某阶段」的选项都会让这条链断掉——不写 `preload` → 下次启动
+`tryUpdateSaveFolder()` 判定世界未就绪 → **删掉整个世界目录**。
+已把写入归位到 `UhcGameManager.setPregenerateComplete()`，让「预生成完成」只有一个出口。
+
+### 需求 2：非海战模式下不生成海洋群系
+
+`MinecraftServerMixin.forceMarineOverworldBiomes` 扩成三分支：
+
+```
+MARINE                      → 现有纯海洋逻辑（不动）
+非 MARINE + disableOceanBiomes → 陆地化
+非 MARINE + 关闭选项         → 原版行为
+```
+
+陆地化实现要点：
+
+- 用 `MultiNoiseBiomeSourceParameterList.getPresetToEntriesMap()` 取**原版 overworld 参数列表**
+  （public static，不需要 accessor / invoker）。
+- 只替换 biome key，**参数区间原样保留** → 原本是海洋的噪声区间现在生成陆地，气候分布不变。
+- 温度映射按群系名判断：`frozen → snowy_plains`、`cold → taiga`、`lukewarm → forest`、
+  `warm → desert`、其余 `ocean/deep_ocean → plains`。
+  ⚠️ **判断顺序必须 frozen → cold → lukewarm → warm** —— `"lukewarm"` 字符串里包含 `"warm"`。
+
+新配置项 `disableOceanBiomes`（默认 `true`，仅海战以外生效）。
+
+### 新增调试命令
+
+`/uhc debug biome [radius]` —— 在半径 N 个区块的网格上采样 biome source，输出群系分布与海洋占比。
+**支持控制台执行**（无玩家时以世界出生区块为中心），所以可以纯 RCON 自动化验证。
+这个命令是环境 2 唯一可靠的验收手段——光看日志只能知道「替换了 20 个条目」，
+不知道生成出来到底有没有海洋。
+
+### 实测（4 组隔离实例，`--universe` 指向独立目录，主世界与用户配置全程未受影响）
+
+| 场景 | 配置 | 结果 |
+|---|---|---|
+| T1 | NORMAL + 陆地化 + `pregenerateOnStart=false` | 海洋 **0/289 = 0.0%**；世界秒级就绪；`preload` 正常创建 |
+| T2 | MARINE | 海洋 **289/289 = 100.0%**，`warm_ocean` 单一种；海战分支未受影响 |
+| T3 | `netherPregenerate=false` | `the_nether` 出现 **0 次**，主世界 15 秒跑完，`preload` 创建 |
+| T4 | `netherPregenerate=true`（对照） | `the_nether` 正常预生成 18 秒，`preload` 创建 |
+
+T1 的群系分布（9 种，非单一群系）：
+`flower_forest 29.1% / river 17.6% / meadow 17.0% / stony_shore 15.6% / plains 13.8% / sunflower_plains 3.5% / dripstone_caves 2.1% / beach 0.7%`
+
+> **观察点**：`river`、`beach`、`stony_shore` 仍会出现。它们本身不是海洋群系（未被过滤），
+> 但在「海洋变陆地」之后，海岸类群系会显得孤立。如果后续想去掉，把过滤条件从
+> `contains("ocean")` 扩展到 `river/beach/stony_shore` 即可。
+
+> ⚠️ **改动只对新生成的区块生效**。已生成的世界必须 `/uhc regen` 才能看到效果，
+> 否则新旧地形会出现硬边界。`levelType` 改动同理。
+
+---
+
+## 无海洋地形的地形部分修复（2026-09-12 19:00，未提交）
+
+**背景**：上一版只把群系换成陆地，地形仍是原版海盆 —— `sea_level=63` 直接把深海填成水，
+表现是「沙漠里一大片水域」（`warm_ocean` → `desert` 的那片最显眼）。
+
+**三条必须知道的结论**（详见 skill `fabric-mod-build-env-check` 的 5.16）：
+
+1. **换 `NoiseRouter` 的字段没用。** `continents`/`depth` 是命名引用，
+   而 `final_density`/`initial_density_without_jaggedness` 是**内联**的、各持有
+   depth/offset 子树的独立副本。**只能包裹那两棵函数树本身。**
+2. **自定义 `DensityFunction` 不能 `sample()` 别的 density function。**
+   `continents` 是 `flat_cache(...)`，外部直接采样恒返回 0.0（实测 1850 万次 `patched=0`）。
+   需要读别的函数时必须用 `DensityFunctionTypes` 原生算子拼装。
+3. **加常数抬升是错的**：海盆相对起伏（42 格）大于它到海平面的距离，抬够了会把高处顶到 320。
+   正解是**替换**起伏。
+
+**最终实现**（`MinecraftServerMixin.createLandChunkGenerator`）：
+```
+weight   = smoothstep(clamp((−0.19 − continents) / 0.15, 0, 1))   // 原生算子
+landSurf = 自带多倍频 value noise 的地表（基准 78，振幅 8+4+2，RAMP 6）
+newFinal = DensityFunctionTypes.lerp(weight, originalFinal, landSurf)
+newInit  = DensityFunctionTypes.lerp(weight, originalInitDensity, landSurf)
+```
+`weight` 在 `continents ≥ -0.19`（河流与陆地）**恒为 0** → 那部分一字不动。
+
+**实测（固定 `level-seed=20260912`，脚本 `verify/ab_terrain.py`）**
+
+| 位置 | 原版 | 陆地化 |
+|---|---|---|
+| 深海盆地 (20,-31) | 水 100%，地面 y=11~53 均 41.2 | **水 0%，y=68~82 均 74.8**，柱顶 `Grass Block/Dirt` |
+| 过渡带 (10,-16) | — | 72% 干燥，y=54~79，柱顶 `Birch Leaves` |
+| 近出生点 (-6,-5) | 水 77.6% | 79.6%（河流/海滩，**未被动**） |
+
+放大化（`levelType=AMPLIFIED`）同样成立（`continents` 与原版共用）。
+
+**新增**：`/uhc debug terrain [radius] [chunkX chunkZ]` —— 口径为 `OCEAN_FLOOR`，
+输出地面高度 min/max/avg、高差、高出海平面比例、**中心柱顶部 4 格方块**；
+控制台不带坐标固定采样区块 (0,0)，便于同种子 A/B。
+
+**顺带**：`ServerPropertiesHandlerMixin` 加了一行永久诊断日志，实测确认 level-type 改写生效
+（`option=放大化, server.properties='minecraft:normal' -> 'minecraft:amplified'`）。
+注意 1.21 的 server.properties 默认值是 `minecraft:normal`。
+
+**调参入口**：`MinecraftServerMixin` 顶部四个常量 —— `OCEAN_EDGE = -0.19`、
+`OCEAN_BLEND_WIDTH = 0.15`（过渡带宽度）、`LAND_SURFACE_BASE_HEIGHT = 78`、
+`LAND_SURFACE_RAMP = 6`；地表噪声振幅写在 `LandSurfaceDensityFunction.surfaceHeight()`。
+
+---
+
+## 地表噪声换成 Perlin（2026-09-12 19:25，未提交）
+
+**反馈**：地形「有棱有角」，希望能更随机。
+
+**根因**：`LandSurfaceDensityFunction.surfaceHeight()` 原来用 **value noise**
+（方格点阵 + smoothstep 插值）。smoothstep 在格点处导数为 0 → 格点附近整片是平的、
+坡度全挤在格子中线上 → 一块块带直边的四边形平台。同一 64×16 方块窗口实测：
+**等高连续段平均 16.8 格（最长 34 格）、2×2 完全等高占 90.2%** —— 就是那种豆腐块感。
+
+**改法**：
+
+- `gradientNoise()` —— 经典 Perlin（格点处值恒为 0，极值落在格点之间，无平区）；
+  quintic fade 保证 C2。`gradientDot()` 用 8 个等长梯度方向（对角线预缩放 1/√2）。
+  `hash64()` 用 murmur3 finalizer（原来的 16 bit hash 会分块）。
+- **域扭曲**：`warpX = x + gradientNoise(x/240, z/240) * 54`（Z 同理，换种子与偏移）。
+  这是把点阵彻底藏起来的关键。
+- 5 个倍频，各自带固定旋转角：230 / 97 / 43 / 18 / 7 方块，幅度 8 / 4 / 2 / 1.2 / 0.8。
+- `valueNoise()` 保留给海战的 `SubmergedDensityFunction`，注释已注明不要用于大面积地表。
+
+**结果**（同一窗口）：等高连续段平均 **16.8 → 6.2 格**，2×2 等高占比 **90.2% → 71.1%**，
+局部起伏 **2 → 8 格**。引擎实测（T5，放大化+陆地化，区块 20/-31）：y=74~84 均 79.5、
+高出海平面 100%、中心柱 `Grass Block/Dirt`。
+
+**新增调试输出**：`/uhc debug terrain` 现在会打印 **64×16 ASCII 地形剖面图（每格 1 方块，
+高度自动拉伸到本图 min/max，`~`=水）**。数字看不出「棱角」，图能。
+
+**离线对比工具**：`verify/noise_compare.py` —— 纯 Python 复刻新旧两套噪声，
+用引擎实测高度校验过精度，可快速迭代噪声参数而不用反复重启服务器。
+
+**调参入口**：`LandSurfaceDensityFunction.surfaceHeight()` 里的倍频表
+（波长/幅度/旋转角/种子），以及 `MinecraftServerMixin` 顶部的 `LAND_SURFACE_BASE_HEIGHT`。
