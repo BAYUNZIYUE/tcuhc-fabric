@@ -2,9 +2,11 @@ package me.fallenbreath.tcuhc.interfaces;
 
 import net.minecraft.loot.LootPool;
 
+import java.util.List;
+
 public interface LootTableAccessor
 {
-	LootPool[] getPools();
+	List<LootPool> getPools();
 
-	void setPools(LootPool[] lootPools);
+	void setPools(List<LootPool> lootPools);
 }

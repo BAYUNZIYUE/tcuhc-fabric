@@ -3,6 +3,7 @@ package me.fallenbreath.tcuhc.mixins.entity;
 import net.minecraft.entity.effect.StatusEffect;
 import net.minecraft.entity.effect.StatusEffectInstance;
 import net.minecraft.entity.effect.StatusEffects;
+import net.minecraft.registry.entry.RegistryEntry;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
@@ -12,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.Redirect;
 @Mixin(StatusEffectInstance.class)
 public abstract class StatusEffectInstanceMixin
 {
-	@Shadow @Final private StatusEffect type;
+	@Shadow @Final private RegistryEntry<StatusEffect> type;
 
 	/**
 	 *  The result behavior will be using the maximum absorption between current absorption and the new absorption
@@ -40,7 +41,8 @@ public abstract class StatusEffectInstanceMixin
 	{
 		// if (that.amplifier > this.amplifier)
 		//           ^ redirected
-		if (this.type == StatusEffects.ABSORPTION)
+		// StatusEffects.* are RegistryEntry<StatusEffect> since 1.20.5, so resolve before comparing.
+		if (this.type.value() == StatusEffects.ABSORPTION.value())
 		{
 			// always results in true for the if statement
 			// so the new effect will always overwrite the exists effect

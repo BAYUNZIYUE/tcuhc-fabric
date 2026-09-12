@@ -1,8 +1,8 @@
 package me.fallenbreath.tcuhc.mixins.item;
 
 import com.google.common.collect.Lists;
-import com.mojang.datafixers.util.Pair;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.component.type.FoodComponent;
 import net.minecraft.component.type.NbtComponent;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.effect.StatusEffect;
@@ -17,7 +17,7 @@ import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.Redirect;
-import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 import java.util.Iterator;
 import java.util.List;
@@ -28,27 +28,23 @@ public abstract class LivingEntityMixin
 	@Unique
 	private int goldenAppleLevel;
 
-	@Inject(
-			method = "applyFoodEffects",
-			at = @At(
-					value = "INVOKE",
-					target = "Ljava/util/List;iterator()Ljava/util/Iterator;"
-			)
-	)
-	private void modifyEffects(ItemStack stack, World world, LivingEntity targetEntity, CallbackInfo ci)
+	/**
+	 * In 1.21.1 applyFoodEffects() only receives a FoodComponent, so the item stack's
+	 * custom "level" tag can no longer be read there. Capture it earlier, in eatFood().
+	 */
+	@Inject(method = "eatFood", at = @At("HEAD"))
+	private void captureGoldenAppleLevel(World world, ItemStack stack, FoodComponent foodComponent, CallbackInfoReturnable<ItemStack> cir)
 	{
 		if (stack.getItem() == Items.GOLDEN_APPLE)
 		{
 			NbtComponent nbtComponent = stack.get(DataComponentTypes.CUSTOM_DATA);
-			if (nbtComponent != null) {
+			if (nbtComponent != null)
+			{
 				NbtCompound nbt = nbtComponent.copyNbt();
-				if (nbt.contains("level"))
-				{
-					this.goldenAppleLevel = nbt.getInt("level");
-				} else {
-					this.goldenAppleLevel = 0;
-				}
-			} else {
+				this.goldenAppleLevel = nbt.contains("level") ? nbt.getInt("level") : 0;
+			}
+			else
+			{
 				this.goldenAppleLevel = 0;
 			}
 		}
@@ -66,27 +62,30 @@ public abstract class LivingEntityMixin
 					target = "Ljava/util/List;iterator()Ljava/util/Iterator;"
 			)
 	)
-	private Iterator<Pair<StatusEffectInstance, Float>> modifyIterator(List<Pair<StatusEffectInstance, Float>> list)
+	private Iterator<FoodComponent.StatusEffectEntry> modifyIterator(List<FoodComponent.StatusEffectEntry> list)
 	{
 		int level = this.goldenAppleLevel;
 		if (level > 0)
 		{
-			List<Pair<StatusEffectInstance, Float>> newList = Lists.newArrayList(list);
+			List<FoodComponent.StatusEffectEntry> newList = Lists.newArrayList(list);
 			for (int i = 0; i < newList.size(); i++)
 			{
-				StatusEffectInstance effect = newList.get(i).getFirst();
-				float chance = newList.get(i).getSecond();
-				StatusEffectInstance newEffect = new StatusEffectInstance(effect);
+				FoodComponent.StatusEffectEntry entry = newList.get(i);
+				float chance = entry.probability();
+				StatusEffectInstance newEffect = new StatusEffectInstance(entry.effect());
+				// NOTE: StatusEffects.* are RegistryEntry<StatusEffect> since 1.20.5, so compare the
+				// resolved StatusEffect values. Comparing the RegistryEntry directly against a
+				// StatusEffect compiles (class vs interface) but is always false at runtime.
 				StatusEffect effectType = newEffect.getEffectType().value();
-				if (effectType == StatusEffects.REGENERATION)
+				if (effectType == StatusEffects.REGENERATION.value())
 				{
 					((StatusEffectInstanceAccessor)newEffect).setDuration((level + 1) * 20);
 				}
-				else if (effectType == StatusEffects.ABSORPTION)
+				else if (effectType == StatusEffects.ABSORPTION.value())
 				{
 					((StatusEffectInstanceAccessor)newEffect).setAmplifier(level - 1);
 				}
-				newList.set(i, Pair.of(newEffect, chance));
+				newList.set(i, new FoodComponent.StatusEffectEntry(newEffect, chance));
 			}
 			return newList.iterator();
 		}

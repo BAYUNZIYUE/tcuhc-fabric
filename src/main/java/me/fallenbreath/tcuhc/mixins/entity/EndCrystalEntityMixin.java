@@ -19,8 +19,6 @@ import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
-import java.util.Optional;
-
 @Mixin(EndCrystalEntity.class)
 public abstract class EndCrystalEntityMixin extends Entity
 {
@@ -33,8 +31,9 @@ public abstract class EndCrystalEntityMixin extends Entity
 	@Unique
 	private int attackCooldown;
 
+	// 1.21.1 changed this from setBeamTarget(Optional<BlockPos>) to setBeamTarget(@Nullable BlockPos)
 	@Shadow
-	public abstract void setBeamTarget(Optional<BlockPos> blockPos);
+	public abstract void setBeamTarget(BlockPos blockPos);
 
 	public EndCrystalEntityMixin(EntityType<?> type, World world)
 	{
@@ -46,7 +45,7 @@ public abstract class EndCrystalEntityMixin extends Entity
 	{
 		if (!this.getWorld().isClient())
 		{
-			this.setBeamTarget(this.target == null ? Optional.empty() : Optional.of(BlockPos.ofFloored(this.target.getX(), this.target.getY() - 0.5, this.target.getZ())));
+			this.setBeamTarget(this.target == null ? null : BlockPos.ofFloored(this.target.getX(), this.target.getY() - 0.5, this.target.getZ()));
 
 			double distanceSqrToTarget = this.target == null ? MAX_RANGE_SQR : this.target.squaredDistanceTo(this);
 			if (this.target != null && distanceSqrToTarget < MAX_RANGE_SQR && this.target.canSee(this))  // has valid target

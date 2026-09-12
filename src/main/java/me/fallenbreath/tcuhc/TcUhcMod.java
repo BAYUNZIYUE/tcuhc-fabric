@@ -3,6 +3,7 @@ package me.fallenbreath.tcuhc;
 import me.fallenbreath.tcuhc.gen.feature.BonusChestFeature;
 import me.fallenbreath.tcuhc.gen.feature.UhcFeatures;
 import me.fallenbreath.tcuhc.gen.structure.SinglePieceLandStructure;
+import me.fallenbreath.tcuhc.util.LootInjector;
 import net.fabricmc.api.ModInitializer;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.MinecraftVersion;
@@ -21,6 +22,7 @@ public class TcUhcMod implements ModInitializer
 		SinglePieceLandStructure.registerLootRetryHook();
 		BonusChestFeature.registerDeferredPlacementHook();
 		UhcFeatures.register();
+		LootInjector.register();
 	}
 
 	public static String getModId()

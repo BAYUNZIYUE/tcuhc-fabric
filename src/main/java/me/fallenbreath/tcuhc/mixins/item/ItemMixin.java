@@ -1,5 +1,6 @@
 package me.fallenbreath.tcuhc.mixins.item;
 
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -12,7 +13,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 public abstract class ItemMixin
 {
 	@Inject(method = "getMaxUseTime", at = @At("HEAD"), cancellable = true)
-	private void modifyMaxUseTimeForGApples(ItemStack stack, CallbackInfoReturnable<Integer> cir)
+	private void modifyMaxUseTimeForGApples(ItemStack stack, LivingEntity user, CallbackInfoReturnable<Integer> cir)
 	{
 		if (stack.getItem() == Items.GOLDEN_APPLE || stack.getItem() == Items.ENCHANTED_GOLDEN_APPLE)
 		{
